@@ -4,6 +4,3 @@ contact_links:
   - name: Security vulnerability
     url: https://github.com/dumontchristophe/ccdash/security/advisories/new
     about: Report privately here — never open a public issue for a security problem.
-  - name: Question or idea
-    url: https://github.com/dumontchristophe/ccdash/discussions
-    about: Ask or discuss here rather than filing an issue.
