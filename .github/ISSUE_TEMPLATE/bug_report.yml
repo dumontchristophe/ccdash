@@ -1,0 +1,48 @@
+name: Bug report
+description: Something in ccdash behaves wrong.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ccdash keeps everything on your own machine. Please don't paste prompt
+        text, absolute file paths or shell commands you'd rather not make public.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. …
+        2. …
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Image tag or commit
+      description: e.g. `1.0.0`, `latest`, or a commit SHA.
+    validations:
+      required: true
+  - type: dropdown
+    id: deploy
+    attributes:
+      label: How you run it
+      options:
+        - Docker (compose)
+        - python3 -m ccdash
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: OS and browser
+      description: The dashboard is a browser UI — e.g. macOS 15 / Firefox 128.
+    validations:
+      required: true

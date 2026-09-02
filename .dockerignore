@@ -1,0 +1,11 @@
+# The build context is the repo root, but the image only needs the package.
+.git
+tests/
+docs/
+skills/
+styles/
+demo/
+.scratch/
+__pycache__/
+*.pyc
+.env*

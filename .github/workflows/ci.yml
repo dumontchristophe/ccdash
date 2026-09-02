@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  # A branch is covered by `pull_request`, which fires on open and on every
+  # later push. Running `push` on it too tested the same SHA twice.
+  push:
+    branches: [main]
+  pull_request:
+
+# `ruff.toml` (target-version) and `Dockerfile` hold this same version and
+# cannot read it from here, so they change with it.
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      # Holds the escapeHtml rule over ccdash/web/assets/*.mjs, and what may go
+      # unescaped is SAFE_TAILS and MARKUP_CHAINS in tests/test_frontend.py.
+      - run: python -m unittest discover -s tests
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      # Pinned, installed in the job only: never in the image, never at runtime.
+      - run: pip install ruff==0.14.11
+      - run: ruff check ccdash tests
+      - run: ruff format --check ccdash tests
+
+  types:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install mypy==2.3.1
+      # ccdash/ is a package; the directory is the target so mypy resolves the
+      # relative imports from the repo root on its search path.
+      - run: mypy --python-version $PYTHON_VERSION --ignore-missing-imports ccdash

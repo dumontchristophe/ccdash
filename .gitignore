@@ -1,0 +1,14 @@
+data/
+*.db
+*.db-wal
+*.db-shm
+__pycache__/
+*.pyc
+.scannerwork/
+.ruff_cache/
+.mypy_cache/
+coverage.xml
+*.local.*
+demo/
+# Compose: per-host bind address and UID/GID
+.env

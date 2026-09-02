@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>ccdash</title>
+    <link rel="stylesheet" href="/assets/ccdash.css" />
+    <script>
+      // Applied before the first paint. app.mjs is a deferred module, so
+      // setting the theme there would flash the wrong one on every load.
+      document.documentElement.dataset.theme =
+        localStorage.getItem("ccdash-theme") ||
+        (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+    </script>
+  </head>
+  <body>
+    <!-- Outside #main: route() rewrites #main wholesale on every render, so a
+         toggle placed inside it would not survive the first navigation. -->
+    <button
+      id="menu"
+      class="fixed top-2 left-2 z-40 md:hidden"
+      title="Show or hide the menu"
+      aria-label="Menu"
+      aria-expanded="false"
+    >
+      &#9776;
+    </button>
+    <!-- Click-outside for the drawer, and the dimming that says the page behind
+         it is not the thing being operated. Present but display:none until the
+         drawer opens, so it is one element to keep in sync rather than two. -->
+    <div
+      id="scrim"
+      class="hidden fixed inset-0 z-20 bg-(--overlay) max-md:in-data-[menu=open]:block"
+    ></div>
+    <aside
+      class="max-md:fixed max-md:left-0 max-md:z-30 max-md:pt-12 max-md:-translate-x-full max-md:shadow-[var(--shadow-lg)] max-md:transition-transform max-md:duration-200 max-md:in-data-[menu=open]:translate-x-0"
+    >
+      <div class="brand"><b>ccdash</b></div>
+      <nav id="nav"></nav>
+      <div class="side-foot">
+        <a
+          href="https://github.com/dumontchristophe/ccdash"
+          target="_blank"
+          rel="noopener noreferrer"
+          >ccdash on GitHub</a
+        >
+        <button id="theme" title="Switch between the light and dark theme"></button>
+      </div>
+    </aside>
+    <main id="main" class="max-md:px-4 max-md:pt-14 max-md:pb-16"></main>
+    <script type="module" src="/assets/app.mjs"></script>
+  </body>
+</html>

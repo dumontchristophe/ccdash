@@ -1,0 +1,980 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ccdash — local OTLP receiver and dashboard for Claude Code</title>
+    <meta
+      name="description"
+      content="ccdash is a zero-dependency local OTLP receiver and dashboard for your own Claude Code telemetry: which tools run and fail, what gets delegated to sub-agents, what your hooks cost in latency, where the tokens go. Python standard library only, stores everything in SQLite, makes no outbound call."
+    />
+    <link rel="canonical" href="https://dumontchristophe.github.io/ccdash/" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="author" content="Christophe Dumont" />
+    <meta name="theme-color" content="" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ccdash" />
+    <meta property="og:url" content="https://dumontchristophe.github.io/ccdash/" />
+    <meta property="og:title" content="ccdash — Claude Code telemetry, on your own machine" />
+    <meta
+      property="og:description"
+      content="A local OTLP receiver and dashboard for your own Claude Code telemetry: which tools run and fail, what gets delegated, where the latency and the tokens go. Zero dependency, nothing leaves your machine."
+    />
+    <meta
+      property="og:image"
+      content="https://dumontchristophe.github.io/ccdash/screenshots/ccdash-summary.webp"
+    />
+    <meta property="og:image:width" content="3344" />
+    <meta property="og:image:height" content="1880" />
+    <meta
+      property="og:image:alt"
+      content="The ccdash Summary: headline figures against the previous period, the weekly rhythm, the projects, and the models, skills and sub-agents used"
+    />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ccdash — Claude Code telemetry, on your own machine" />
+    <meta
+      name="twitter:description"
+      content="See which tools run and fail, what gets delegated, where the latency and the tokens go. Zero dependency, nothing leaves your machine."
+    />
+    <meta
+      name="twitter:image"
+      content="https://dumontchristophe.github.io/ccdash/screenshots/ccdash-summary.webp"
+    />
+    <link rel="icon" href="data:," id="icon" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "ccdash",
+        "url": "https://dumontchristophe.github.io/ccdash/",
+        "applicationCategory": "DeveloperApplication",
+        "applicationSubCategory": "Observability dashboard",
+        "operatingSystem": "Linux, macOS, Windows",
+        "description": "A local OTLP receiver and dashboard for Claude Code telemetry. It ingests the OpenTelemetry metrics and logs Claude Code exports, stores them in a SQLite database and serves a single-page dashboard showing sessions and projects, tool calls and their failures, sub-agent delegations, hook overhead, token flow and estimated cost. Python standard library only, no dependency, nothing to install, no outbound network call.",
+        "softwareRequirements": "Python 3, or Docker",
+        "license": "https://opensource.org/licenses/MIT",
+        "codeRepository": "https://github.com/dumontchristophe/ccdash",
+        "programmingLanguage": ["Python", "JavaScript"],
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "author": {
+          "@type": "Person",
+          "name": "Christophe Dumont",
+          "url": "https://christophedumont.dev",
+          "sameAs": ["https://github.com/dumontchristophe"]
+        },
+        "screenshot": "https://dumontchristophe.github.io/ccdash/screenshots/ccdash-summary.webp"
+      }
+    </script>
+
+    <script>
+      // Applied before the first paint, and from the same storage key as the
+      // dashboard: a visitor who has already picked a theme there keeps it here.
+      document.documentElement.dataset.theme =
+        localStorage.getItem("ccdash-theme") ||
+        (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+    </script>
+
+    <style>
+      /* Tokens copied from styles/input.css, trimmed to what this page
+         uses. Every colour on the page resolves through one of them -- the
+         previous version hard-coded the palette in three places and drifted the
+         day the dashboard was restyled. */
+      :root {
+        --bg: #1a1613;
+        --panel: #221d19;
+        --card: #2a2420;
+        --card2: #332c26;
+        --line: #40372f;
+        --hover: #5e5245;
+        --tx: #ede6db;
+        --dim: #a89b8a;
+        --dim2: #786c5d;
+        --acc: #e8875a;
+        --acc-fill: #e8875a;
+        --acc-bg: #3a2a20;
+        --amber: #f0b429;
+        --amber-bg: #35301d;
+        --shadow-lg: 0 18px 50px rgba(0, 0, 0, 0.5);
+        --fu: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        --fn: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      :root[data-theme="light"] {
+        --bg: #f4efe6;
+        --panel: #fdfaf4;
+        --card: #fdfaf4;
+        --card2: #efe8dc;
+        --line: #d8cdb9;
+        --hover: #ab9d84;
+        --tx: #2a241c;
+        --dim: #6b6152;
+        --dim2: #94897a;
+        /* No body text is accented on this ground: an orange readable at
+           4.5:1 here is a brick, so --acc is a warm near-black and the orange
+           takes what only needs 3:1. */
+        --acc: #40332a;
+        --acc-fill: #c2410c;
+        --acc-bg: #fbe0d2;
+        --amber: #854d0e;
+        --amber-bg: #faedcd;
+        --shadow-lg: 0 18px 50px rgba(60, 50, 30, 0.22);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+        scroll-padding-top: 80px;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--tx);
+        font: 16px/1.65 var(--fu);
+        letter-spacing: 0.01em;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+      }
+      a {
+        color: var(--acc);
+      }
+      code {
+        font-family: var(--fn);
+        font-size: 0.92em;
+        color: var(--acc);
+      }
+      h1,
+      h2,
+      h3 {
+        letter-spacing: -0.02em;
+        line-height: 1.15;
+        margin: 0;
+      }
+      .wrap {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: var(--bg);
+        background: color-mix(in srgb, var(--bg) 85%, transparent);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--line);
+      }
+      .bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        height: 60px;
+      }
+      .mark {
+        font: 600 18px var(--fn);
+        letter-spacing: -0.01em;
+        color: var(--acc);
+        text-decoration: none;
+      }
+      .bar nav {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        font-size: 14px;
+      }
+      .bar nav a {
+        color: var(--dim);
+        text-decoration: none;
+      }
+      .bar nav a:hover {
+        color: var(--tx);
+      }
+      .bar nav a.gh {
+        color: var(--tx);
+        border: 1px solid var(--line);
+        background: var(--card);
+        border-radius: 7px;
+        padding: 6px 12px;
+      }
+      .bar nav a.gh:hover {
+        border-color: var(--hover);
+      }
+      #theme {
+        background: none;
+        border: 0;
+        padding: 0;
+        cursor: pointer;
+        font: 16px/1 var(--fu);
+        color: var(--dim2);
+      }
+      #theme:hover {
+        color: var(--acc);
+      }
+
+      .hero {
+        padding: 72px 0 56px;
+      }
+      .hero-grid {
+        display: grid;
+        gap: 48px;
+        align-items: center;
+      }
+      .eyebrow {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        margin: 0 0 18px;
+        font: 13px var(--fn);
+        color: var(--acc);
+      }
+      .pill {
+        border: 1px solid var(--line);
+        background: var(--card);
+        border-radius: 999px;
+        padding: 2px 10px;
+        color: var(--dim);
+      }
+      h1 {
+        font-size: clamp(34px, 5.2vw, 52px);
+        font-weight: 800;
+      }
+      /* The only accented text on the page: both headings are past the size
+         where 3:1 is enough, which body copy is not. */
+      h1 .accent,
+      h2 {
+        color: var(--acc-fill);
+      }
+      .tagline {
+        margin: 22px 0 0;
+        max-width: 34em;
+        font-size: 18px;
+        color: var(--dim);
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 30px;
+      }
+      .btn {
+        display: inline-block;
+        border-radius: 8px;
+        padding: 11px 20px;
+        font-size: 15px;
+        font-weight: 600;
+        text-decoration: none;
+        border: 1px solid transparent;
+      }
+      /* A label on a fill is a text role: --acc-fill only carries 3.5:1 here,
+         so this takes --acc. */
+      .btn.primary {
+        background: var(--acc);
+        color: var(--bg);
+      }
+      .btn.primary:hover {
+        opacity: 0.88;
+      }
+      .btn.ghost {
+        background: var(--card);
+        border-color: var(--line);
+        color: var(--tx);
+      }
+      .btn.ghost:hover {
+        border-color: var(--hover);
+      }
+
+      .shot {
+        display: block;
+        width: 100%;
+        height: auto;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        box-shadow: var(--shadow-lg);
+      }
+
+      section {
+        padding: 64px 0;
+      }
+      .rule {
+        border-top: 1px solid var(--line);
+      }
+      h2 {
+        font-size: clamp(26px, 3.4vw, 34px);
+        font-weight: 800;
+      }
+      .lede {
+        margin: 14px 0 0;
+        max-width: 46em;
+        font-size: 17px;
+        color: var(--dim);
+      }
+
+      .features {
+        display: grid;
+        gap: 20px;
+        margin-top: 40px;
+      }
+      .feature {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        border-radius: 12px;
+        padding: 22px;
+      }
+      .feature .glyph {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        background: var(--acc-bg);
+        color: var(--acc-fill);
+        font-size: 17px;
+      }
+      .feature h3 {
+        margin: 14px 0 8px;
+        font-size: 17px;
+        font-weight: 700;
+      }
+      .feature p {
+        margin: 0;
+        font-size: 15px;
+        color: var(--dim);
+      }
+
+      .showcase {
+        display: grid;
+        gap: 36px;
+        align-items: center;
+        margin-top: 56px;
+      }
+      .showcase h3 {
+        font-size: clamp(21px, 2.6vw, 26px);
+        font-weight: 700;
+      }
+      .showcase p {
+        margin: 14px 0 0;
+        font-size: 16px;
+        color: var(--dim);
+      }
+
+      .steps {
+        display: grid;
+        gap: 22px;
+        margin-top: 36px;
+      }
+      .step {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        border-radius: 12px;
+        padding: 24px;
+        /* A grid item defaults to min-width:auto, which widens the track
+           instead of letting the block scroll -- and body hides the horizontal
+           overflow, so the code would simply be cut off on a phone. */
+        min-width: 0;
+      }
+      .step h3 {
+        font-size: 17px;
+        font-weight: 700;
+      }
+      .step h3 span {
+        font: 600 13px var(--fn);
+        color: var(--acc);
+        margin-right: 10px;
+      }
+      .step p {
+        margin: 12px 0 0;
+        font-size: 15px;
+        color: var(--dim);
+      }
+      pre {
+        margin: 16px 0 0;
+        padding: 16px;
+        overflow-x: auto;
+        background: var(--card2);
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        font: 13px/1.7 var(--fn);
+        color: var(--tx);
+        letter-spacing: 0;
+      }
+      /* A visible track: the platform scrollbars fade out when idle, so a
+         block that scrolls looks exactly like one that is cut off. */
+      pre::-webkit-scrollbar {
+        height: 8px;
+      }
+      pre::-webkit-scrollbar-thumb {
+        background: var(--line);
+        border-radius: 6px;
+      }
+      pre code {
+        color: inherit;
+        font-size: inherit;
+      }
+      /* The value to edit: highlighted on-brand rather than the default yellow. */
+      pre mark {
+        background: color-mix(in srgb, var(--acc) 22%, transparent);
+        color: var(--acc);
+        border-radius: 3px;
+        padding: 0 3px;
+      }
+      .faq details {
+        border-top: 1px solid var(--line);
+        padding: 14px 0;
+      }
+      .faq summary {
+        cursor: pointer;
+        font-weight: 600;
+        color: var(--tx);
+        list-style: none;
+      }
+      .faq summary::-webkit-details-marker {
+        display: none;
+      }
+      .faq summary::after {
+        content: "+";
+        float: right;
+        color: var(--acc);
+      }
+      .faq details[open] summary::after {
+        content: "–";
+      }
+      .faq details > *:not(summary) {
+        margin-top: 10px;
+      }
+      .flags {
+        margin: 22px 0 0;
+        padding-left: 20px;
+        font-size: 15px;
+        color: var(--dim);
+      }
+      .flags li + li {
+        margin-top: 8px;
+      }
+
+      .warn {
+        margin-top: 32px;
+        border: 1px solid var(--amber);
+        background: var(--amber-bg);
+        border-radius: 12px;
+        padding: 20px 22px;
+      }
+      .warn strong {
+        color: var(--amber);
+      }
+      .warn p {
+        margin: 8px 0 0;
+        font-size: 15px;
+        color: var(--tx);
+      }
+
+      footer {
+        border-top: 1px solid var(--line);
+        padding: 36px 0;
+        font-size: 14px;
+        color: var(--dim);
+      }
+      .foot {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        justify-content: space-between;
+      }
+      footer a {
+        color: var(--dim);
+      }
+      footer a:hover {
+        color: var(--acc);
+      }
+
+      @media (min-width: 860px) {
+        .features {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+      @media (min-width: 1000px) {
+        .hero-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+        .showcase {
+          grid-template-columns: 1fr 1fr;
+          gap: 56px;
+        }
+        /* Shown inside half a container the screenshots become unreadable, so
+           they run past the right edge instead. */
+        .hero-shot {
+          margin-right: -140px;
+        }
+        .showcase.flip .body {
+          order: -1;
+        }
+      }
+      @media (max-width: 640px) {
+        .bar nav a.hide-sm {
+          display: none;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <div class="wrap bar">
+        <a class="mark" href="#top">ccdash</a>
+        <nav>
+          <a class="hide-sm" href="#features">Features</a>
+          <a class="hide-sm" href="#screens">Screens</a>
+          <a href="#quick-start">Quick start</a>
+          <a class="hide-sm" href="#faq">FAQ</a>
+          <button id="theme" type="button" title="Switch between the light and dark theme">
+            ◑
+          </button>
+          <a class="gh" href="https://github.com/dumontchristophe/ccdash">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="top">
+      <div class="wrap hero">
+        <div class="hero-grid">
+          <div>
+            <p class="eyebrow">
+              OTLP receiver + dashboard <span class="pill">open source · MIT</span>
+            </p>
+            <h1>Claude Code telemetry, <span class="accent">on your own machine.</span></h1>
+            <p class="tagline">
+              Claude Code already measures itself and can export it as OpenTelemetry. ccdash
+              receives it locally, keeps it in a SQLite file you can query yourself, and shows what
+              your sessions actually do: which tools fail, what gets delegated, where the latency
+              and the tokens go.
+            </p>
+            <p class="tagline">No dependency, nothing to install, no outbound call.</p>
+            <div class="actions">
+              <a class="btn primary" href="#quick-start">Quick start</a>
+              <a class="btn ghost" href="https://github.com/dumontchristophe/ccdash"
+                >View on GitHub</a
+              >
+            </div>
+          </div>
+          <div class="hero-shot">
+            <img
+              class="shot"
+              src="screenshots/ccdash-summary.webp"
+              alt="The ccdash Summary: sessions, tool calls, tokens and estimated cost against the previous period, telemetry per weekday and hour, the projects, and the models, skills and sub-agents used"
+              width="3344"
+              height="1880"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div class="wrap rule">
+        <section id="features">
+          <h2>Everything stays on your side</h2>
+          <p class="lede">
+            A session burns tokens, delegates to sub-agents, compacts its context and fires hundreds
+            of tool calls. None of it is visible, and none of it needs to leave your machine to be
+            measured.
+          </p>
+
+          <div class="features">
+            <div class="feature">
+              <span class="glyph" aria-hidden="true">◱</span>
+              <h3>Zero dependency</h3>
+              <p>
+                One Python file and a handful of static assets, standard library only. No pip, no
+                <code>requirements.txt</code>, nothing to install. Python 3 or Docker, nothing else.
+              </p>
+            </div>
+            <div class="feature">
+              <span class="glyph" aria-hidden="true">∿</span>
+              <h3>Local by construction</h3>
+              <p>
+                The server only receives and serves — it makes no outbound call. Identifying
+                attributes (email, user id, organization id) are dropped on ingestion, and only
+                <code>http/json</code> is accepted.
+              </p>
+            </div>
+            <div class="feature">
+              <span class="glyph" aria-hidden="true">◎</span>
+              <h3>Storage you can read</h3>
+              <p>
+                Everything lands in a single SQLite database. Point <code>sqlite3</code> at
+                <code>ccdash.db</code> and run whatever query the dashboard does not answer.
+              </p>
+            </div>
+            <div class="feature">
+              <span class="glyph" aria-hidden="true">◰</span>
+              <h3>Per-project attribution</h3>
+              <p>
+                OpenTelemetry does not expose the working directory. One
+                <code>OTEL_RESOURCE_ATTRIBUTES</code> line per repository and every figure breaks
+                down by project and by machine.
+              </p>
+            </div>
+            <div class="feature">
+              <span class="glyph" aria-hidden="true">⚒︎</span>
+              <h3>Drillable to the raw event</h3>
+              <p>
+                Any tool call, delegation or API request opens on what was actually run, how long it
+                took, how much output it returned, and the raw attributes behind it.
+              </p>
+            </div>
+            <div class="feature">
+              <span class="glyph" aria-hidden="true">⚙︎</span>
+              <h3>Tells you what is missing</h3>
+              <p>
+                Diagnostics reports what was accepted or skipped, which metrics and events arrived,
+                what your hooks cost in latency, and which env flags still gate a view.
+              </p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="wrap rule">
+        <section id="screens">
+          <h2>See ccdash in action</h2>
+          <p class="lede">
+            Eight views over one SQLite file, each at its own address: what ran, what failed, what
+            was delegated, how long it took and what it drew in tokens. Every one of them filters by
+            time window, machine and project, and every row opens on the call behind it.
+          </p>
+
+          <div class="showcase">
+            <div>
+              <img
+                class="shot"
+                src="screenshots/ccdash-costs.webp"
+                alt="Costs view: total cost, cache savings, cache write and output tokens, cost over time stacked by model, the weighted token breakdown, and cost by project and by request origin"
+                width="3360"
+                height="1896"
+                loading="lazy"
+              />
+            </div>
+            <div class="body">
+              <h3>Where the tokens go</h3>
+              <p>
+                How many tokens the cache saved you, how many went into writing it, and how the
+                whole thing moves over time per model. The weighted bar shows what those tokens
+                really weigh — a cache read counts a tenth of a fresh input token, an output token
+                five — and the last two blocks break it down per project and per request origin:
+                main thread, autocomplete, background summaries, session titles.
+              </p>
+            </div>
+          </div>
+
+          <div class="showcase flip">
+            <div>
+              <img
+                class="shot"
+                src="screenshots/ccdash-sessions.webp"
+                alt="Sessions view: median active time, prompts, tool calls, tokens and cost, then one row per session with its title, project, models, duration and figures"
+                width="3344"
+                height="1880"
+                loading="lazy"
+              />
+            </div>
+            <div class="body">
+              <h3>Every session, and the median one</h3>
+              <p>
+                Median active time, prompts, tool calls, tokens and cost over the period, then one
+                row per session: its title, project, model families, duration and its own figures.
+                Sessions that arrive without resource attributes land under
+                <code>(undefined)</code>.
+              </p>
+            </div>
+          </div>
+
+          <div class="showcase">
+            <div>
+              <img
+                class="shot"
+                src="screenshots/ccdash-session-details.webp"
+                alt="Session detail: duration, prompts, tool calls, tool results, tokens and cost, with the full timeline, the files it changed and the token split"
+                width="3344"
+                height="1880"
+                loading="lazy"
+              />
+            </div>
+            <div class="body">
+              <h3>The whole event stream of a run</h3>
+              <p>
+                Not the conversation — the runtime. Every API request with its model and round-trip,
+                every tool call with what it returned, every hook fire with its overhead, every
+                skill activation, delegation and compaction, timestamped in order. The same events
+                regroup by tool, by file changed, by command, by prompt or by delegation, next to
+                the token split and the share of the run that happened off the main loop.
+              </p>
+            </div>
+          </div>
+
+          <div class="showcase flip">
+            <div>
+              <img
+                class="shot"
+                src="screenshots/ccdash-prompt-details.webp"
+                alt="A prompt opened in the inspector: its estimated cost, duration, hook overhead and output tokens, the tools that turn used and the sub-agents it spawned"
+                width="2286"
+                height="1736"
+                loading="lazy"
+              />
+            </div>
+            <div class="body">
+              <h3>What one prompt set off</h3>
+              <p>
+                One turn, unfolded: how long it ran and how much of that was hook overhead, every
+                tool it triggered with its call count, failures, median and p95 and the share of
+                output it returned, and the sub-agents it spawned with their model, tokens and
+                duration.
+              </p>
+            </div>
+          </div>
+
+          <div class="showcase">
+            <div>
+              <img
+                class="shot"
+                src="screenshots/ccdash-bash-call-details.webp"
+                alt="A Bash call opened from the Bash tab of a session: its description, the exact command, its duration, the size of what it returned and its status"
+                width="1842"
+                height="910"
+                loading="lazy"
+              />
+            </div>
+            <div class="body">
+              <h3>Down to the exact call</h3>
+              <p>
+                Open any row and you get what was really run: the Bash command itself, its
+                wall-clock duration, the volume of output it returned and whether it succeeded. Same
+                for skills, MCP servers and sub-agent instructions.
+              </p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="wrap rule">
+        <section id="quick-start">
+          <h2>Quick start</h2>
+          <p class="lede">
+            Run the server, point Claude Code at it, and optionally name your projects. Restart a
+            session afterwards: the first points land within a minute. ccdash reads the telemetry
+            stream and never opens <code>~/.claude</code>, so nothing is reconstructed from your
+            transcripts — the dashboard starts filling from the first session you run after enabling
+            telemetry, and what came before stays invisible to it.
+          </p>
+
+          <div class="warn">
+            <strong>ccdash is a local tool, and only a local tool.</strong>
+            <p>
+              It has no authentication of any kind — no login, no token, no access control. Anyone
+              who can reach the port can read your prompts, your commands and your whole session
+              history. It listens on <code>127.0.0.1</code> by default and that default is
+              deliberate: never expose it on a public server or on a network interface you do not
+              control.
+            </p>
+          </div>
+
+          <div class="steps">
+            <div class="step">
+              <h3><span>01</span>Run the server</h3>
+              <p>
+                Docker (recommended). Download the compose file and start it — it pulls the
+                published image, no build from source:
+              </p>
+              <pre><code>curl -O https://raw.githubusercontent.com/dumontchristophe/ccdash/main/compose.yml
+docker compose up -d</code></pre>
+              <p>
+                Dashboard and OTLP endpoint share one port:
+                <code>http://127.0.0.1:4318/</code>, health check on <code>/health</code>.
+              </p>
+            </div>
+
+            <div class="step">
+              <h3><span>02</span>Connect Claude Code</h3>
+              <p>
+                In <code>~/.claude/settings.json</code>. The endpoint below points at
+                <code>127.0.0.1</code> — ccdash on the same machine.
+              </p>
+              <pre><code>{
+  "env": {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "OTEL_METRICS_EXPORTER": "otlp",
+    "OTEL_METRICS_INCLUDE_ACCOUNT_UUID": "false",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/json",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://127.0.0.1:4318",
+    "OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE": "delta",
+    "OTEL_LOGS_EXPORTER": "otlp",
+    "OTEL_LOG_TOOL_DETAILS": "1",
+    "OTEL_LOG_USER_PROMPTS": "0",
+    "OTEL_LOG_ASSISTANT_RESPONSES": "0",
+    "OTEL_RESOURCE_ATTRIBUTES": "host=<mark>my-host</mark>"
+  }
+}</code></pre>
+              <p>
+                <code>host=my-host</code> here names the machine. Per-repository attribution
+                (project) goes in that repo's own <code>.claude/settings.json</code>, below.
+              </p>
+            </div>
+
+            <div class="step">
+              <h3><span>03</span>Name your projects</h3>
+              <p>
+                Optional, but it is what turns one flat stream into a per-repository breakdown. In
+                the observed repository's <code>.claude/settings.json</code>:
+              </p>
+              <pre><code>{
+  "env": {
+    "OTEL_RESOURCE_ATTRIBUTES": "host=<mark>my-host</mark>,project=<mark>my-project</mark>"
+  }
+}</code></pre>
+              <p>
+                The keys are exactly <code>host</code> and <code>project</code>; anything else falls
+                into <code>(undefined)</code>.
+              </p>
+            </div>
+          </div>
+
+          <ul class="flags">
+            <li>
+              <code>OTEL_LOG_TOOL_DETAILS=1</code> — without it, Bash commands, sub-agent types and
+              MCP server names never leave Claude Code, and those views stay empty.
+            </li>
+            <li>
+              <code>OTEL_LOG_USER_PROMPTS</code> — <code>0</code> above. Set it to <code>1</code> to
+              name sessions after their first prompt and keep prompt text; the content is then
+              stored in clear in <code>ccdash.db</code>.
+            </li>
+            <li>
+              <code>delta</code> temporality — metrics exported cumulatively cannot be summed over a
+              time window, so several figures would read wrong.
+            </li>
+          </ul>
+
+        </section>
+      </div>
+
+      <div class="wrap rule">
+        <section id="faq">
+          <h2>FAQ</h2>
+          <div class="faq">
+            <details>
+              <summary>Does any of my data leave the machine?</summary>
+              <p>
+                No. The server is Python standard library with no outbound call, and the page
+                fetches nothing from a CDN. Everything stays in one SQLite file on your disk.
+              </p>
+            </details>
+            <details>
+              <summary>Does it show my past sessions?</summary>
+              <p>
+                No — it is not retroactive. ccdash reads the live OTEL stream and never opens
+                <code>~/.claude</code>, so the dashboard fills from the first session you run after
+                enabling telemetry.
+              </p>
+            </details>
+            <details>
+              <summary>Where is my data, and in what form?</summary>
+              <p>
+                A single SQLite file, <code>ccdash.db</code>. With the prompt and response log flags
+                on, prompt text and shell commands are stored in clear — point <code>sqlite3</code>
+                at it and read them.
+              </p>
+            </details>
+            <details>
+              <summary>What are the logging options?</summary>
+              <p>Three env flags decide what the dashboard can show:</p>
+              <ul>
+                <li>
+                  <code>OTEL_LOG_TOOL_DETAILS=1</code> — Bash commands, sub-agent types and MCP
+                  server names; without it those views stay empty.
+                </li>
+                <li>
+                  <code>OTEL_LOG_USER_PROMPTS=1</code> — names sessions after their first prompt and
+                  keeps prompt text.
+                </li>
+                <li>
+                  <code>OTEL_LOG_ASSISTANT_RESPONSES=1</code> — adds each assistant response to the
+                  timeline.
+                </li>
+              </ul>
+              <p>
+                The last two store that text in clear in <code>ccdash.db</code> — leave them at
+                <code>0</code> to keep none of it.
+              </p>
+            </details>
+            <details>
+              <summary>How do I split usage by machine and project?</summary>
+              <p>
+                <code>OTEL_RESOURCE_ATTRIBUTES</code> carries <code>host</code> (the machine) and
+                <code>project</code>. Set <code>host</code> globally in
+                <code>~/.claude/settings.json</code> so every session is tagged. Then, in a
+                repository's own <code>.claude/settings.json</code>, set <code>host</code> and
+                <code>project</code> together: Claude Code replaces this variable per scope instead
+                of merging it, so a repo that set only <code>project</code> would drop the
+                <code>host</code>.
+              </p>
+            </details>
+            <details>
+              <summary>How do I update?</summary>
+              <p><code>docker compose pull &amp;&amp; docker compose up -d</code>.</p>
+            </details>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap foot">
+        <p style="margin: 0">
+          Released under the
+          <a href="https://github.com/dumontchristophe/ccdash/blob/main/LICENSE">MIT License</a>. A
+          project by
+          <a href="https://github.com/dumontchristophe">Christophe Dumont</a>.
+        </p>
+        <a href="https://github.com/dumontchristophe/ccdash">github.com/dumontchristophe/ccdash</a>
+      </div>
+    </footer>
+
+    <script>
+      const root = document.documentElement;
+      // theme-color and the favicon can only be literals in the markup.
+      // Reading them back from the stylesheet keeps :root the one place a
+      // colour is written.
+      const paintChrome = () => {
+        const css = getComputedStyle(root);
+        const bg = css.getPropertyValue("--bg").trim();
+        const acc = css.getPropertyValue("--acc").trim();
+        document.querySelector('meta[name="theme-color"]').content = bg;
+        document.getElementById("icon").href =
+          "data:image/svg+xml," +
+          encodeURIComponent(
+            `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">` +
+              `<rect width="24" height="24" rx="5" fill="${bg}"/>` +
+              `<text x="12" y="16.5" font-family="monospace" font-size="13" font-weight="bold"` +
+              ` fill="${acc}" text-anchor="middle">cc</text></svg>`,
+          );
+      };
+      document.getElementById("theme").addEventListener("click", () => {
+        const next = root.dataset.theme === "light" ? "dark" : "light";
+        root.dataset.theme = next;
+        localStorage.setItem("ccdash-theme", next);
+        paintChrome();
+      });
+      paintChrome();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,927 @@
+@import "tailwindcss" source(none);
+@source "../assets/*.mjs";
+@source "../index.html";
+
+/* Only the two breakpoints this dashboard uses. `static` is required: without
+   it the binary emits a theme token only where it sees it referenced. */
+@theme static {
+  --breakpoint-*: initial;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1000px;
+}
+
+:root {
+  /* Surfaces, from the page up to a raised card: the light sepia ramp turned
+     over, warm brown throughout. */
+  --bg: #1a1613;
+  --panel: #221d19;
+  --card: #2a2420;
+  --card2: #332c26;
+  --well: #302a24; /* recessed fill: gauge tracks, empty cells */
+  --grid: #3a322b; /* hairline: table rows, chart gridlines */
+  --line: #40372f; /* border of a panel or a card */
+  --hover: #5e5245; /* border or fill under the pointer */
+  --tx: #ede6db;
+  --dim: #a89b8a;
+  --dim2: #786c5d;
+  /* Warm, on a warm ground: the accent sits in the same family as the
+     surfaces rather than against them. 5.26:1 on --card2, the lowest ratio in
+     this block and still above AA -- do not darken it further. The light theme
+     defines its own; the two grounds have no accent in common. */
+  --acc: #e8875a;
+  /* Bars, rhythm cells, meter fills: a filled shape needs 3:1 where text
+     needs 4.5:1. That gap is why this is a separate token; on this ground the
+     two roles want the same colour, so it repeats --acc. */
+  --acc-fill: #e8875a;
+  --acc-bg: #3a2a20;
+  /* The active menu entry: coloured type on a tinted ground here, a filled
+     block on the light theme. The two differ in form, not only in hue, which
+     is why this is a pair of tokens and not a third accent. */
+  --nav-on-bg: var(--acc-bg);
+  --nav-on-fg: var(--acc);
+  /* Per-model hues, all far enough apart to be told apart in a legend. */
+  --opus: #c4b5fd;
+  --sonnet: #7dd3fc;
+  --haiku: #86efac;
+  --fable: #f0abfc;
+  --other: #a39e8b;
+  --amber: #f0b429;
+  --amber-bg: #35301d; /* compaction rows keep the warning hue */
+  --red: #f4837e;
+  /* Token kinds, aligned on the model hues they usually come from. */
+  --tok-input: #7dd3fc;
+  --tok-cache-read: #6b6759;
+  --tok-cache-creation: #c4b5fd;
+  --tok-output: #f0abfc;
+  /* Depth and translucency. Black at a fixed alpha reads as depth on a dark
+     surface and as dirt on a light one, so these are tokens too. */
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --shadow-lg: 0 18px 50px rgba(0, 0, 0, 0.5);
+  --overlay: rgba(0, 0, 0, 0.55);
+  --area-fill: 0.42; /* opacity of a stacked area band */
+  --fu: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --fn: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+/* The light theme is the same sepia read the other way round: the page is the
+   darkest surface and a card floats above it. index.html always sets the theme
+   explicitly, so there is no prefers-color-scheme block -- a stored choice has
+   to be able to contradict the system one. Only the values the dark ramp
+   cannot serve inverted are listed. */
+:root[data-theme="light"] {
+  --bg: #f4efe6;
+  --panel: #fdfaf4;
+  --card: #fdfaf4;
+  --card2: #efe8dc;
+  --well: #e8e0d1;
+  --grid: #e0d7c6;
+  --line: #d8cdb9;
+  --hover: #ab9d84;
+  --tx: #2a241c;
+  --dim: #6b6152;
+  --dim2: #94897a;
+  /* On this ground an orange readable as text cannot exceed 37% lightness,
+     and every one of those is a brick. So no text is accented: --acc is a warm
+     near-black and the orange takes the jobs that only need 3:1, which is what
+     the eye reads as the page colour anyway. --acc-fill is the lightest orange
+     still holding 4.5:1 under a --panel label, as the active menu entry
+     requires. */
+  --acc: #40332a;
+  --acc-fill: #c2410c;
+  --acc-bg: #fbe0d2;
+  --nav-on-bg: var(--acc-fill);
+  --nav-on-fg: var(--panel);
+  --opus: #6d28d9;
+  --sonnet: #1d4ed8;
+  --haiku: #166534;
+  --fable: #a21caf;
+  --other: #57534e;
+  --amber: #854d0e;
+  --amber-bg: #faedcd;
+  --red: #b91c1c;
+  --tok-input: #1d4ed8;
+  --tok-cache-read: #a8a29e;
+  --tok-cache-creation: #6d28d9;
+  --tok-output: #a21caf;
+  /* Warm grey rather than black: pure black shadows read as grime on a paper
+     ground. The modal backdrop drops from 55% to 35% for the same reason. */
+  --shadow: 0 1px 2px rgba(60, 50, 30, 0.1);
+  --shadow-lg: 0 18px 50px rgba(60, 50, 30, 0.22);
+  --overlay: rgba(40, 34, 22, 0.35);
+  --area-fill: 0.55; /* a band that reads as translucent on ink washes out on paper */
+}
+
+@layer components {
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--tx);
+    font: 14px/1.6 var(--fu);
+    letter-spacing: 0.01em;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    display: flex;
+    min-height: 100vh;
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--line);
+    border-radius: 6px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--hover);
+  }
+
+  /* sidebar */
+  aside {
+    width: 230px;
+    flex: 0 0 230px;
+    background: var(--panel);
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    padding: 19px 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand b {
+    display: block;
+    font: 17px var(--fn);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+    color: var(--acc);
+  }
+  nav {
+    padding: 14px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  nav h6 {
+    margin: 16px 0 4px;
+    padding: 0 12px;
+    font: 600 10.5px var(--fu);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--dim2);
+  }
+  nav a {
+    display: flex;
+    gap: 11px;
+    align-items: center;
+    padding: 9px 12px;
+    border-radius: 8px;
+    color: var(--dim);
+    text-decoration: none;
+    font-size: 14px;
+    transition:
+      background 0.12s ease,
+      color 0.12s ease;
+  }
+  nav a:hover {
+    background: var(--card);
+    color: var(--tx);
+  }
+  nav a.on {
+    background: var(--nav-on-bg);
+    color: var(--nav-on-fg);
+    font-weight: 500;
+  }
+  nav a i {
+    font-style: normal;
+    width: 17px;
+    text-align: center;
+    opacity: 0.85;
+  }
+  .side-foot {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 14px 18px;
+    border-top: 1px solid var(--line);
+    font: 11px var(--fn);
+    color: var(--dim2);
+  }
+  /* One glyph for both directions: the button says "swap the theme", not
+   "you are in the dark one", so nothing has to be rewritten on click. */
+  #theme {
+    padding: 3px 8px;
+    font-size: 13px;
+    line-height: 1;
+    color: var(--dim2);
+  }
+  #theme::before {
+    content: "\25D1";
+  }
+  #theme:hover {
+    color: var(--acc);
+  }
+  .side-foot a {
+    color: var(--dim2);
+    text-decoration: none;
+  }
+  .side-foot a:hover {
+    color: var(--acc);
+  }
+  /* main */
+  main {
+    flex: 1;
+    min-width: 0;
+    padding: 30px 36px 80px;
+  }
+  .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 18px;
+    flex-wrap: nowrap;
+    margin-bottom: 28px;
+  }
+  /* Preflight resets every heading to `font-weight: inherit`, so an h3 that
+     relied on the UA's bold renders at the body's 400. h1, .box h2 and nav h6
+     redeclare their own weight; h3 is the one that had none. */
+  h3 {
+    font-weight: 600;
+  }
+  h1 {
+    font-size: 25px;
+    font-weight: 600;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+  }
+  .sub {
+    color: var(--dim);
+    font-size: 14px;
+    margin-top: 2px;
+    overflow-wrap: anywhere;
+  }
+  .filters {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  select,
+  button {
+    font: 13px var(--fu);
+    background: var(--card);
+    color: var(--tx);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 7px 11px;
+    cursor: pointer;
+    transition:
+      border-color 0.12s ease,
+      background 0.12s ease,
+      color 0.12s ease;
+  }
+  select:hover,
+  button:hover {
+    border-color: var(--hover);
+  }
+  button.on {
+    background: var(--acc-bg);
+    border-color: var(--acc);
+    color: var(--acc);
+  }
+  .back {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    text-decoration: none;
+    color: var(--tx);
+  }
+
+  /* blocks */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+    gap: 16px;
+  }
+  /* A cards row opens a page and needs no margin; one that follows a panel takes
+   the same gap the panels keep between themselves. */
+  .box + .cards {
+    margin-top: 18px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+    transition: border-color 0.12s ease;
+  }
+  .card:hover {
+    border-color: var(--hover);
+  }
+  .card .l {
+    color: var(--dim);
+    font-size: 13px;
+  }
+  /* Sized so a formatted duration ("2m 55s", the longest thing a card holds)
+   stays on one line in the narrowest card, the 130px column of a modal. */
+  .card .v {
+    font-size: 24px;
+    overflow-wrap: anywhere;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-top: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .card .h {
+    color: var(--dim2);
+    font-size: 12px;
+    margin-top: 3px;
+  }
+  .card.hl {
+    border-color: var(--amber);
+  }
+  /* Change against the previous window. Every figure it annotates measures
+   consumption, so "more" is always the same news and always the same hue. */
+  .dl {
+    font: 500 11.5px var(--fn);
+    white-space: nowrap;
+  }
+  .dl.up {
+    color: var(--amber);
+  }
+  .dl.down {
+    /* Neutral, not the accent: with a warm accent the two directions sat 23
+     degrees apart and read as one hue on an 11px glyph. Only "more" is worth
+     colouring. */
+    color: var(--dim);
+  }
+  .ico {
+    float: right;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: var(--acc-bg);
+    color: var(--acc);
+    display: grid;
+    place-items: center;
+    font-size: 15px;
+  }
+  .box {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px 22px;
+    margin-top: 18px;
+    box-shadow: var(--shadow);
+  }
+  .box h2 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 3px;
+  }
+  /* A panel heading that carries its own total, opposite the title. */
+  .boxhead {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .boxhead .tot {
+    font: 600 17px var(--fn);
+    font-variant-numeric: tabular-nums;
+  }
+  .box .cap {
+    color: var(--dim);
+    font-size: 12.5px;
+    margin: 0 0 12px;
+  }
+  .two {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+    gap: 16px;
+    margin-top: 16px;
+  }
+  .two > .box {
+    margin-top: 0;
+  }
+  /* A narrower left column, for a fixed-width figure next to a list. */
+  .two.thirds {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  }
+  /* Three equal columns, for breakdowns that answer the same kind of question
+   and should therefore be read side by side rather than ranked. */
+  .three {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+  .three > .box {
+    margin-top: 0;
+  }
+  /* `minmax(0, 1fr)` and not `1fr`: the shorthand is `minmax(auto, 1fr)`, whose
+   minimum is the item's min-content -- the tab strip's 7 nowrap buttons measure
+   574px, so a `1fr` track is 574px wide in a 343px viewport and every
+   `overflow-x: auto` below it is neutered. The wide tracks above already spell
+   the `minmax(0, ...)` out for the same reason. */
+  @media (max-width: 1000px) {
+    .two,
+    .two.thirds,
+    .three {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  /* `width < 768px` and not `max-width: 767px`: this has to be the same edge as
+   Tailwind's `max-md:`, or a viewport would fall between the two. */
+  @media (width < 768px) {
+    /* The strip is 685px of buttons in a 297px column and macOS hides its
+     scrollbar, so nothing says four tabs are off screen. route() pairs this
+     with a scroll onto the active button. */
+    .tabs {
+      mask-image: linear-gradient(to right, var(--bg) calc(100% - 26px), transparent);
+    }
+    /* Both heights sized the tab body against the right-hand column of `.two`,
+     which the 1000px collapse already removed: below it they only nest one
+     scroller inside another. */
+    .tl {
+      max-height: none;
+    }
+    .fill .tabbody {
+      flex: 0 0 auto;
+      min-height: 0;
+      overflow-y: visible;
+    }
+    /* 24px semibold puts `$1234.56` past the edge of a 93px card. */
+    .card .v {
+      font-size: 19px;
+    }
+    /* stackedAreaChart distorts its glyphs along with its bands -- see the
+     comment on the renderer. The <title> tooltips keep the figures reachable. */
+    .axlab {
+      display: none;
+    }
+    /* Dropping the low-priority columns is renderTable's job (`hide: "max-md"`);
+     this is the other half. `td` is `white-space: nowrap` everywhere, which is
+     what leaves a project name, a hook name or an `mcp__…__…` tool name with no
+     ceiling at all -- and 10px of side padding is 20px per column a phone does
+     not have. */
+    th,
+    td {
+      padding-left: 6px;
+      padding-right: 6px;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    /* `flex: 0 0 180px` leaves `min-width: auto`, so the used width is the
+     min-content and not the 180px it reads as: `mcp__playwright__browser_navigate`
+     measures 237.6px. Let the track shrink and let the name break. */
+    .tl .e .n {
+      flex: 0 1 auto;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+  }
+  .tabs {
+    display: flex;
+    gap: 3px;
+    background: var(--bg);
+    padding: 4px;
+    border-radius: 9px;
+    margin: 0 0 16px;
+    overflow-x: auto;
+  }
+  .tabs button {
+    padding: 6px 13px;
+    font-size: 13px;
+    border: 0;
+    background: none;
+    border-radius: 6px;
+    color: var(--dim);
+    white-space: nowrap;
+  }
+  .tabs button:hover {
+    color: var(--tx);
+  }
+  .tabs button.on {
+    background: var(--card2);
+    color: var(--acc);
+    font-weight: 500;
+  }
+  .tabs button b {
+    font-weight: 400;
+    opacity: 0.55;
+    margin-left: 5px;
+  }
+
+  /* tables */
+  .tw {
+    overflow-x: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+  }
+  th {
+    text-align: right;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--dim);
+    font-weight: 500;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+  }
+  th:hover {
+    color: var(--tx);
+  }
+  th.s::after {
+    content: " \25BE";
+  }
+  th.s.a::after {
+    content: " \25B4";
+  }
+  th:first-child,
+  td:first-child {
+    text-align: left;
+  }
+  td {
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--grid);
+    text-align: right;
+    white-space: nowrap;
+    font-size: 13px;
+  }
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  td .sub {
+    color: var(--dim2);
+    font: 11.5px var(--fn);
+    margin-top: 2px;
+  }
+  tbody tr[data-id] {
+    cursor: pointer;
+  }
+  tbody tr[data-id]:hover {
+    background: var(--card2);
+  }
+  /* `overflow-wrap` and not `word-break`: a project path or a hostname is one
+   unbreakable run, and panelRow's wrap puts it on its own line without giving it
+   a ceiling. */
+  .num {
+    font-family: var(--fn);
+    font-size: 12.5px;
+    overflow-wrap: anywhere;
+  }
+  .dim {
+    color: var(--dim);
+  }
+  .ko {
+    color: var(--red);
+  }
+  .amber {
+    color: var(--amber);
+  }
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: var(--card2);
+    color: var(--dim);
+    font: 11px var(--fn);
+    margin-right: 4px;
+  }
+  .tag.Opus {
+    color: var(--opus);
+  }
+  .tag.Sonnet {
+    color: var(--sonnet);
+  }
+  .tag.Haiku {
+    color: var(--haiku);
+  }
+  .tag.Fable {
+    color: var(--fable);
+  }
+  .tag.MCP {
+    color: var(--acc);
+    background: var(--acc-bg);
+  }
+  .tag.Skill {
+    color: var(--haiku);
+  }
+  .tag.Agent {
+    color: var(--fable);
+  }
+  .slink {
+    color: var(--acc);
+    font: 11.5px var(--fn);
+    cursor: pointer;
+  }
+
+  /* lists */
+  .rows {
+    display: flex;
+    flex-direction: column;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 13px 4px;
+    border-bottom: 1px solid var(--grid);
+    cursor: pointer;
+  }
+  .row:last-child {
+    border-bottom: 0;
+  }
+  .row:hover {
+    background: var(--card2);
+  }
+  .row .id {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .row .t {
+    font-size: 13.5px;
+    font-weight: 500;
+    display: flex;
+    gap: 9px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .row .m {
+    color: var(--dim2);
+    font: 11.5px var(--fn);
+    display: flex;
+    gap: 10px;
+    margin-top: 3px;
+    flex-wrap: wrap;
+  }
+  /* Every measure carries its own label and none is set apart -- the cost is a
+   figure among others, not the answer the row exists to give. Columns are a
+   fixed width so they line up down the list; a row may declare four of them
+   or six. */
+  .row .g {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 74px;
+    gap: 16px;
+    text-align: right;
+  }
+  .row .g b {
+    display: block;
+    font: 500 13px var(--fn);
+    font-variant-numeric: tabular-nums;
+  }
+  .row .g i {
+    display: block;
+    margin-top: 2px;
+    font: 400 10px var(--fu);
+    font-style: normal;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--dim2);
+  }
+
+  /* pagination under a .rows list */
+  .pager {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    color: var(--dim);
+    font-size: 12px;
+  }
+  .pager button {
+    padding: 3px 11px;
+  }
+  .pager select {
+    padding: 3px 8px;
+    font-size: 12px;
+  }
+  .pager button[disabled] {
+    color: var(--dim2);
+    cursor: default;
+  }
+  .pager button[disabled]:hover {
+    border-color: var(--line);
+  }
+
+  /* bars and gauges */
+  .stack {
+    display: flex;
+    height: 9px;
+    border-radius: 5px;
+    overflow: hidden;
+    background: var(--well);
+    min-width: 120px;
+  }
+  .stack i {
+    height: 100%;
+  }
+  .s-input {
+    background: var(--tok-input);
+  }
+  .s-cache-read {
+    background: var(--tok-cache-read);
+  }
+  .s-cache-creation {
+    background: var(--tok-cache-creation);
+  }
+  .s-output {
+    background: var(--tok-output);
+  }
+  .leg {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--dim);
+    margin-top: 11px;
+  }
+  .leg b {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 3px;
+    margin-right: 6px;
+  }
+  .mini {
+    height: 5px;
+    border-radius: 3px;
+    background: var(--well);
+    margin-top: 5px;
+  }
+  .mini i {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    background: var(--acc-fill);
+  }
+  svg {
+    display: block;
+    width: 100%;
+    overflow: visible;
+  }
+  /* A band of the stacked area chart. Its opacity is calibrated per theme:
+   what reads as a translucent layer on a dark ground washes out on a light one. */
+  .area {
+    fill-opacity: var(--area-fill);
+  }
+  .tl {
+    max-height: 520px;
+    overflow-y: auto;
+  }
+  .fill {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  /* The body of a tab, whatever it holds: a zero-basis flex child adds nothing to
+   its parent's intrinsic height, so the grid row keeps being sized by the
+   right-hand column and every tab ends where that column ends. It scrolls on
+   its own rather than stretching the page to the length of a table. */
+  .fill .tabbody {
+    flex: 1 1 0;
+    min-height: 520px;
+    overflow-y: auto;
+  }
+  .fill .tabbody .tl {
+    max-height: none;
+    overflow: visible;
+  }
+  /* The pager belongs to the box, not to the list: a hundred timeline rows should
+   not sit between it and the reader. Only when it is the last thing in the tab
+   -- two stacked tables would otherwise pin both of their pagers to the foot. */
+  .fill .tabbody > .pager:last-child {
+    position: sticky;
+    bottom: 0;
+    margin-top: 0;
+    padding: 12px 0 2px;
+    background: var(--card);
+  }
+  .tl .e {
+    display: flex;
+    gap: 13px;
+    padding: 8px 2px;
+    border-bottom: 1px solid var(--grid);
+    font-size: 13px;
+  }
+  .tl .e time {
+    color: var(--dim2);
+    font: 11.5px var(--fn);
+    flex: 0 0 62px;
+  }
+  .tl .e .n {
+    flex: 0 0 180px;
+    font: 12px var(--fn);
+  }
+  /* `text-overflow` needs a single line to act on, and this one wraps, so the
+   ellipsis never appeared and a wrapped row ran 4-8 lines tall. A line clamp is
+   the same intent expressed on a box that wraps. `rawAttrs` opts out with an
+   inline `display:block`: an attribute value is data, not a caption. */
+  .tl .e .d {
+    color: var(--dim);
+    font: 12px var(--fn);
+    flex: 1;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .tl .e.c {
+    background: var(--amber-bg);
+  }
+  .tl .day {
+    position: sticky;
+    top: 0;
+    padding: 7px 2px 5px;
+    border-bottom: 1px solid var(--line);
+    background: var(--card);
+    color: var(--dim2);
+    font: 11.5px var(--fn);
+    letter-spacing: 0.04em;
+  }
+  .note {
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--amber);
+    border-radius: 9px;
+    background: var(--card);
+    padding: 14px 17px;
+    margin-top: 16px;
+    font-size: 13.5px;
+  }
+  .note.err {
+    border-left-color: var(--red);
+  }
+  code {
+    font: 12px var(--fn);
+    /* An OTEL variable name or a db path has no space to break on, and these
+       land inside 297px boxes on a phone. */
+    overflow-wrap: anywhere;
+    background: var(--card2);
+    padding: 2px 6px;
+    border-radius: 5px;
+  }
+  .empty {
+    text-align: center;
+    color: var(--dim);
+    padding: 44px 20px;
+  }
+  .modal {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: var(--overlay);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .modal .box {
+    margin: 0;
+    width: 100%;
+    max-width: 760px;
+    max-height: 85vh;
+    overflow: auto;
+    box-shadow: var(--shadow-lg);
+  }
+  /* An open modal freezes the page under it: the backdrop covers the viewport,
+   so a scroll aimed there moves something the reader cannot see and loses the
+   place they came from. Selected on the state of the DOM rather than on a class
+   the render would have to keep in step with the modal stack. The gutter is
+   reserved on every page, otherwise hiding the scrollbar shifts the layout
+   sideways by its width each time a modal opens. */
+  html {
+    scrollbar-gutter: stable;
+  }
+  html:has(.modal) {
+    overflow: hidden;
+  }
+}

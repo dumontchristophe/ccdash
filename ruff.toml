@@ -1,0 +1,7 @@
+target-version = "py312"
+
+[lint]
+select = ["E", "W", "F", "I", "B"]
+# Line length belongs to the formatter, which cannot split a long string
+# literal. Ruff documents the two as conflicting.
+ignore = ["E501"]
