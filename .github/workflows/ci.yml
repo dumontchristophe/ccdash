@@ -7,6 +7,10 @@ on:
     branches: [main]
   pull_request:
 
+# Least-privilege GITHUB_TOKEN: every job only reads the checkout.
+permissions:
+  contents: read
+
 # `ruff.toml` (target-version) and `Dockerfile` hold this same version and
 # cannot read it from here, so they change with it.
 env:
