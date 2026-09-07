@@ -84,6 +84,27 @@ ccdash listens on `http://127.0.0.1:4318`.
 
 ### Claude Code Configuration
 
+#### Telemetry surfaces
+
+Claude Code's telemetry is documented in Anthropic's
+[monitoring guide](https://code.claude.com/docs/en/monitoring-usage); the full
+variable reference is in [`docs/reference.md`](docs/reference.md).
+
+| Surface | Exports OTEL? | How it is configured | Status |
+|---|---|---|---|
+| Claude Code (CLI) | Yes | the `env` block below | tested |
+| Claude Agent SDK | Yes, identical | same as the CLI (it runs the CLI underneath) | tested |
+| Claude Code Desktop | Yes | override `env` (including `host` / `project`) from the Desktop app | tested (SSH + local); exact mechanism unconfirmed |
+| Claude Cowork | Yes | Team / Enterprise plans only (not Pro/Max), set by an admin — [docs](https://claude.com/docs/cowork/monitoring.md) | not tested |
+| Bedrock / Vertex (3rd-party) | Yes | managed config pushed by an admin — [docs](https://claude.com/docs/third-party/claude-desktop/telemetry.md) | not tested |
+| Claude Desktop (claude.ai chat app) | No | — | no OTEL export |
+
+The cloud surfaces (Cowork, Bedrock, Vertex) are untested here, and a local ccdash
+(`127.0.0.1`, a homelab box) is unlikely to be reachable from them without opening
+the network (VPN, etc.).
+
+#### Variables
+
 add this `env` block to your global `~/.claude/settings.json` and restart your session.
 
 ```json

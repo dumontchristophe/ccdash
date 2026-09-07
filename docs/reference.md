@@ -65,6 +65,18 @@ order of magnitude apart on the miss are a few points apart on the hit.
 
 ## 2. OTEL environment variables
 
+### Which surface
+
+The variables below are read by **Claude Code (CLI)** and the **Claude Agent SDK**
+identically — the SDK runs the CLI underneath. **Claude Code Desktop** exports too;
+in my testing `host` / `project` had to be overridden from the Desktop app for
+those attributes to come through — observed, not documented. **Claude Cowork**
+exports on **Team and Enterprise plans only** (not Pro/Max), configured by an admin
+rather than through these variables — see Anthropic's
+[Cowork monitoring docs](https://claude.com/docs/cowork/monitoring.md). The
+**Claude Desktop chat app** (claude.ai) emits no OTEL. The at-a-glance surface
+matrix, with tested/untested status, is in [`README.md`](../README.md#telemetry-surfaces).
+
 Set these in `~/.claude/settings.json` under `"env"` (global). For
 per-repository attribution, put `OTEL_RESOURCE_ATTRIBUTES` in the repo's
 `.claude/settings.json`. The values below match README.md's block.
