@@ -199,6 +199,7 @@ pages.sessions = ({ sessions, median }) => {
     <div class=id><div class=t>${escapeHtml(session.title || session.project || "(undefined)")}
       ${session.title ? `<span class=tag>${escapeHtml(session.project || "-")}</span>` : ""}
       ${session.title_src === "rename" ? `<span class="tag Skill">renamed</span>` : ""}
+      ${session.title_src === "generated" ? `<span class="tag Skill">auto-titled</span>` : ""}
       ${session.models.map((m) => `<span class="tag ${escapeHtml(m)}">${escapeHtml(m)}</span>`).join("")}</div>
       <div class=m><span>${escapeHtml(formatDateTime(session.ended_at))}</span>
       ${session.compactions ? `<span class=amber>\u21B4 ${escapeHtml(formatNumber(session.compactions))} compactions</span>` : ""}
@@ -419,6 +420,7 @@ export const sessionSubtitle = (head, sessionId) => {
     escapeHtml(sessionId.slice(0, 8)),
     escapeHtml(formatDateTime(head.started_at)),
     head.title_src === "rename" ? "renamed" : "",
+    head.title_src === "generated" ? "auto-titled" : "",
     terminals,
     // Named: a bare version number would read as the dashboard's own.
     versions ? "Claude Code " + versions : "",
