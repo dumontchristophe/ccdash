@@ -102,6 +102,16 @@ that touched a file, one of those calls, the prompt behind it — and the same
 kind can recur in a chain. `Escape` and the close button pop one frame; a
 backdrop click and any navigation clear the stack whole.
 
+The `setup` modal is the one frame no row opens. It builds the two
+`settings.json` blocks a reader pastes to start Claude Code's telemetry, from a
+live host/project/endpoint form (`buildSettings` in `modals.mjs`, pure, no
+POST). At boot `app.mjs` reads `/api/health?days=0`; on an empty store
+(`metric_points === 0 && prompts_total === 0`) it opens the modal unprompted —
+`days=0` so data predating the window still reads as non-empty. Afterwards the
+`#setup` button, static in the `<aside>` above the footer so the nav's per-route
+rewrite leaves it be, reopens it from any page; both paths pre-fill `host` from
+`server_host` on the same health payload.
+
 ## Paging
 
 `paginate(id, items, size = 50)` slices a list and returns `{visible, control}`,

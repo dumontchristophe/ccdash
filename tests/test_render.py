@@ -1364,5 +1364,67 @@ class TestAnUnknownSessionRendersAsNotFound(BaseDBTest):
                     self.assertNotIn(marker, html)
 
 
+class TestSetupModal(unittest.TestCase):
+    """The setup modal renders no payload from the store: it takes a host, an
+    optional project, an endpoint and three log flags, and prints the two
+    settings.json blocks a reader pastes. No DB, so it stands outside
+    BaseDBTest."""
+
+    ALL_ON = {
+        "endpoint": "127.0.0.1",
+        "host": "laptop",
+        "project": "ccdash",
+        "tools": True,
+        "prompts": True,
+        "responses": True,
+    }
+
+    def _settings(self, opts):
+        return render([("setup:settings", opts)])["setup:settings"]
+
+    def test_the_global_block_interpolates_the_endpoint(self):
+        settings = self._settings({**self.ALL_ON, "endpoint": "192.168.1.2"})
+        env = json.loads(settings["global"])["env"]
+        self.assertEqual(env["OTEL_EXPORTER_OTLP_ENDPOINT"], "http://192.168.1.2:4318")
+
+    def test_each_log_flag_follows_its_checkbox(self):
+        settings = self._settings(
+            {**self.ALL_ON, "tools": False, "prompts": True, "responses": False}
+        )
+        env = json.loads(settings["global"])["env"]
+        self.assertEqual(env["OTEL_LOG_TOOL_DETAILS"], "0")
+        self.assertEqual(env["OTEL_LOG_USER_PROMPTS"], "1")
+        self.assertEqual(env["OTEL_LOG_ASSISTANT_RESPONSES"], "0")
+
+    def test_the_global_block_carries_the_host_alone(self):
+        settings = self._settings(self.ALL_ON)
+        env = json.loads(settings["global"])["env"]
+        self.assertEqual(env["OTEL_RESOURCE_ATTRIBUTES"], "host=laptop")
+
+    def test_the_project_block_carries_host_and_project(self):
+        settings = self._settings(self.ALL_ON)
+        env = json.loads(settings["project"])["env"]
+        self.assertEqual(env["OTEL_RESOURCE_ATTRIBUTES"], "host=laptop,project=ccdash")
+
+    def test_a_blank_project_drops_the_segment(self):
+        settings = self._settings({**self.ALL_ON, "project": "  "})
+        env = json.loads(settings["project"])["env"]
+        self.assertEqual(env["OTEL_RESOURCE_ATTRIBUTES"], "host=laptop")
+
+    def test_the_host_reaches_the_dom_as_text_never_as_markup(self):
+        host = XSS % "host"
+        html = render([("modal:setup", {"server_host": host})])["modal:setup"]
+        self.assertNotIn("<img", html)
+        self.assertIn("&lt;img src=x id=host", html)
+        for marker in DEFECT_MARKERS:
+            self.assertNotIn(marker, html)
+
+    def test_a_missing_host_renders_without_defect(self):
+        html = render([("modal:setup", {})])["modal:setup"]
+        self.assertIsInstance(html, str, "the renderer threw: %r" % (html,))
+        for marker in DEFECT_MARKERS:
+            self.assertNotIn(marker, html)
+
+
 if __name__ == "__main__":
     unittest.main()

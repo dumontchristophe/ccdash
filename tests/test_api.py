@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import socket
 import statistics
 import sys
 import time
@@ -580,6 +581,10 @@ class TestApiWithSeedData(BaseDBTest):
     def test_health_prompts_total(self):
         result = api_health(NO_FILTER)
         self.assertEqual(result["prompts_total"], 2)
+
+    def test_health_reports_the_server_host(self):
+        # Pre-fills the setup modal's host field; the value is socket.gethostname().
+        self.assertEqual(api_health(NO_FILTER)["server_host"], socket.gethostname())
 
     def test_a_project_row_carries_the_seeded_figures(self):
         # The one project the fixture seeds, with the two sessions, the four
