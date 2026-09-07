@@ -1583,6 +1583,78 @@ class TestTheSessionTitleOnPromptsSharingASecond(BaseDBTest):
         self.assertEqual(self.title(self.RENAMED), ("last name", "rename"))
 
 
+class TestTheGeneratedSessionTitle(BaseDBTest):
+    """The title Claude Code generates, carried on an api_request whose
+    query_source is generate_session_title and whose response is {"title": ...}.
+
+    It outranks the first prompt but yields to an explicit /rename. The pass is
+    ordered ts, id, so the last generated title wins.
+    """
+
+    SID = "sess-generated"
+    TS = 1_750_000_000
+
+    def title(self, session_id):
+        head = api_session(session_id)["head"]
+        return head["title"], head["title_src"]
+
+    def prompt(self, session_id, text):
+        seed_log_event(
+            "user_prompt", session_id, [_attr("prompt", _str(text))], ts=self.TS
+        )
+
+    def generated(self, session_id, response):
+        seed_log_event(
+            "assistant_response",
+            session_id,
+            [
+                _attr("query_source", _str("generate_session_title")),
+                _attr("response", _str(response)),
+            ],
+            ts=self.TS,
+        )
+
+    def test_the_generated_title_wins_over_the_first_prompt(self):
+        seed_metric("claude_code.cost.usage", 0.1, self.SID)
+        self.prompt(self.SID, "the prompt it opened on")
+        self.generated(self.SID, '{"title": "Process 16043 vfkit service"}')
+        self.assertEqual(
+            self.title(self.SID), ("Process 16043 vfkit service", "generated")
+        )
+
+    def test_a_rename_wins_over_the_generated_title(self):
+        seed_metric("claude_code.cost.usage", 0.1, self.SID)
+        self.prompt(self.SID, "the prompt it opened on")
+        self.generated(self.SID, '{"title": "a machine title"}')
+        self.prompt(self.SID, "/rename the human name")
+        self.assertEqual(self.title(self.SID), ("the human name", "rename"))
+
+    def test_the_last_generated_title_wins(self):
+        seed_metric("claude_code.cost.usage", 0.1, self.SID)
+        self.generated(self.SID, '{"title": "first machine title"}')
+        self.generated(self.SID, '{"title": "last machine title"}')
+        self.assertEqual(self.title(self.SID), ("last machine title", "generated"))
+
+    def test_the_empty_api_request_does_not_shadow_the_assistant_response(self):
+        seed_metric("claude_code.cost.usage", 0.1, self.SID)
+        self.prompt(self.SID, "the prompt it opened on")
+        seed_log_event(
+            "api_request",
+            self.SID,
+            [_attr("query_source", _str("generate_session_title"))],
+            ts=self.TS,
+        )
+        self.generated(self.SID, '{"title": "the machine title"}')
+        self.assertEqual(self.title(self.SID), ("the machine title", "generated"))
+
+    def test_an_unparsable_response_leaves_the_prompt_as_the_title(self):
+        seed_metric("claude_code.cost.usage", 0.1, self.SID)
+        self.prompt(self.SID, "the prompt it opened on")
+        self.generated(self.SID, "not json at all")
+        self.generated(self.SID, '{"no_title_key": "x"}')
+        self.assertEqual(self.title(self.SID), ("the prompt it opened on", "prompt"))
+
+
 class TestTheSessionDetailReadsItsOwnSessionOnly(BaseDBTest):
     """How many rows `api_session` reads, with and without noise beside it.
 

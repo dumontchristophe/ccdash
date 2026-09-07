@@ -2,6 +2,7 @@
 three endpoints that ship them -- /api/sessions, /api/session, /api/context.
 """
 
+import json
 import re
 import statistics
 from collections.abc import Callable, Sequence
@@ -15,34 +16,68 @@ RENAME_RE = re.compile(r"^\s*/rename\s+(.+)$", re.I)
 # A session title is one line in a list, so it is cut to what that line shows.
 TITLE_MAX_CHARS = 120
 
+# Ordered ts, id, so at equal rank the last event wins for rename and generated,
+# while a prompt keeps the first (see _keep_title).
+_TITLE_RANK = {"prompt": 0, "generated": 1, "rename": 2}
+
+
+def _generated_title(response: str | None) -> str | None:
+    """The title Claude Code put in a generate_session_title response, or None
+    when the response is missing, not JSON, or carries no `title`."""
+    if not response:
+        return None
+    try:
+        title = json.loads(response).get("title")
+    except (ValueError, AttributeError):
+        return None
+    return title.strip() if isinstance(title, str) and title.strip() else None
+
 
 def session_titles(scope: request.Scope) -> dict[str, dict[str, str]]:
-    """A /rename command caught in a user_prompt, otherwise the session's first
-    prompt. Both require OTEL_LOG_USER_PROMPTS=1. `id` breaks the tie, `ts`
-    being a second."""
-    out = {}
+    """A /rename command caught in a user_prompt, else the title Claude Code
+    generated (a generate_session_title response), else the session's first
+    prompt. Prompts and renames need OTEL_LOG_USER_PROMPTS=1. `id` breaks the
+    tie, `ts` being a second."""
+    out: dict[str, dict[str, str]] = {}
     for row in store.query(
         *aggregates.scoped(
-            "session_id, prompt_text, ts, id",
-            "events WHERE name='user_prompt' AND prompt_text IS NOT NULL"
-            + aggregates.SCOPE_MARK,
+            "session_id, name, prompt_text, response, ts, id",
+            "events WHERE ("
+            "(name='user_prompt' AND prompt_text IS NOT NULL) OR "
+            "query_source='generate_session_title')" + aggregates.SCOPE_MARK,
             scope,
             order="ts, id",
         )
     ):
-        text = row["prompt_text"] or ""
-        rename_match = RENAME_RE.match(text)
-        if rename_match:
-            out[row["session_id"]] = {
-                "title": rename_match.group(1).strip()[:TITLE_MAX_CHARS],
-                "src": "rename",
-            }
-        elif row["session_id"] not in out:
-            out[row["session_id"]] = {
-                "title": " ".join(text.split())[:TITLE_MAX_CHARS],
-                "src": "prompt",
-            }
+        if row["name"] != "user_prompt":
+            title = _generated_title(row["response"])
+            src = "generated"
+        else:
+            text = row["prompt_text"] or ""
+            rename_match = RENAME_RE.match(text)
+            title = (
+                rename_match.group(1).strip()
+                if rename_match
+                else " ".join(text.split())
+            )
+            src = "rename" if rename_match else "prompt"
+        if title is None:
+            continue
+        _keep_title(out, row["session_id"], title[:TITLE_MAX_CHARS], src)
     return out
+
+
+def _keep_title(
+    out: dict[str, dict[str, str]], session_id: str, title: str, src: str
+) -> None:
+    """Records the candidate title unless the one already held outranks it. At an
+    equal rank a prompt keeps the first seen, rename and generated take the last."""
+    held = out.get(session_id)
+    if held is not None:
+        rank, held_rank = _TITLE_RANK[src], _TITLE_RANK[held["src"]]
+        if rank < held_rank or (rank == held_rank and src == "prompt"):
+            return
+    out[session_id] = {"title": title, "src": src}
 
 
 def session_models(session_ids: Sequence[str]) -> dict[str, set[str | None]]:
