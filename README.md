@@ -97,8 +97,8 @@ add this `env` block to your global `~/.claude/settings.json` and restart your s
     "OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE": "delta",
     "OTEL_LOGS_EXPORTER": "otlp",
     "OTEL_LOG_TOOL_DETAILS": "1",
-    "OTEL_LOG_USER_PROMPTS": "0",
-    "OTEL_LOG_ASSISTANT_RESPONSES": "0",
+    "OTEL_LOG_USER_PROMPTS": "1",
+    "OTEL_LOG_ASSISTANT_RESPONSES": "1",
     "OTEL_RESOURCE_ATTRIBUTES": "host=my-host" 
   }
 }
@@ -119,8 +119,8 @@ These variables decide what the dashboard can show:
 | Variable | What it records | Default |
 |---|---|---|
 | `OTEL_LOG_TOOL_DETAILS` | The full Bash command run, each sub-agent's type and description, and MCP server names. Off, these columns read empty. | `1` in the block above |
-| `OTEL_LOG_USER_PROMPTS` | Session titles and the prompt text on the Prompts tab — **stored in clear text** in `ccdash.db`. Off, sessions show by ID and prompts read `(redacted)`. | `0` (off) |
-| `OTEL_LOG_ASSISTANT_RESPONSES` | Claude's answers on the session timeline and in the event inspector (clipped) — **stored in clear text**. Off, the timeline shows the turn without its text. | `0` (off) |
+| `OTEL_LOG_USER_PROMPTS` | Session titles and the prompt text on the Prompts tab — **stored in clear text** in `ccdash.db`. Off, sessions show by ID and prompts read `(redacted)`. | Claude Code: off when unset. ccdash: `1` — set `0` to opt out. |
+| `OTEL_LOG_ASSISTANT_RESPONSES` | Claude's answers on the session timeline and in the event inspector (clipped) — **stored in clear text**. Off, the timeline shows the turn without its text. | Claude Code: off when unset. ccdash: `1` — set `0` to opt out. |
 | `OTEL_RESOURCE_ATTRIBUTES` | Tags each session with a `host` and `project`, so the Host and Project filters can split your telemetry by machine and repository. | — |
 
 The full variable list is in [`docs/reference.md`](docs/reference.md).
