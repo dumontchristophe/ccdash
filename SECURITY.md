@@ -10,9 +10,10 @@ you move the port off `127.0.0.1`.
 Everything Claude Code exports, minus six identity attributes. Depending on the
 env flags you set, that includes:
 
-- **Prompt text**, in clear, when `OTEL_LOG_USER_PROMPTS=1` (off by default).
-- **Assistant responses**, in clear, when `OTEL_LOG_ASSISTANT_RESPONSES=1` (off
-  by default).
+- **Prompt text**, in clear, when `OTEL_LOG_USER_PROMPTS=1` — the value ccdash's
+  setup ships. Set it to `0` to opt out.
+- **Assistant responses**, in clear, when `OTEL_LOG_ASSISTANT_RESPONSES=1` — also
+  set by ccdash's setup. Set it to `0` to opt out.
 - **Shell commands as run**, when `OTEL_LOG_TOOL_DETAILS=1` — including any
   secret typed on a command line.
 - **Absolute file paths**, naming your home directory and every repository.

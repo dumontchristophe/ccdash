@@ -79,8 +79,8 @@ per-repository attribution, put `OTEL_RESOURCE_ATTRIBUTES` in the repo's
 | `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE` | `"delta"` | Correct sums. `"cumulative"` makes ccdash sum running totals and inflate everything; Diagnostics shows a red warning. | None. |
 | `OTEL_METRICS_INCLUDE_ACCOUNT_UUID` | `"false"` | No view uses the account UUID; ccdash strips PII anyway, but `"false"` avoids sending it. | `"false"` reduces PII in transit. |
 | `OTEL_LOG_TOOL_DETAILS` | `"1"` | Full Bash command; sub-agent type/description; MCP server names. Diagnostics notes MCP calls missing a name. | Bash commands may hold paths, args, secrets. |
-| `OTEL_LOG_USER_PROMPTS` | `"0"` (default) | Session titles and the Prompts tab text. Off, sessions show by ID and prompts read "(redacted)". | **High** — enabling stores every prompt in clear text in `ccdash.db`. |
-| `OTEL_LOG_ASSISTANT_RESPONSES` | `"0"` (default) | Assistant answer on the timeline (clipped to 300 chars) and in the event inspector. Unset, it follows `OTEL_LOG_USER_PROMPTS`. Text capped at 60 000 chars or `CLAUDE_CODE_OTEL_CONTENT_MAX_LENGTH`. | **High** — enabling stores every answer in clear text. |
+| `OTEL_LOG_USER_PROMPTS` | Claude Code off when unset; ccdash recommends `"1"` | Session titles and the Prompts tab text. Off, sessions show by ID and prompts read "(redacted)". | **High** — enabling stores every prompt in clear text in `ccdash.db`. |
+| `OTEL_LOG_ASSISTANT_RESPONSES` | Claude Code off when unset; ccdash recommends `"1"` | Assistant answer on the timeline (clipped to 300 chars) and in the event inspector. Unset, it follows `OTEL_LOG_USER_PROMPTS`. Text capped at 60 000 chars or `CLAUDE_CODE_OTEL_CONTENT_MAX_LENGTH`. | **High** — enabling stores every answer in clear text. |
 | `OTEL_RESOURCE_ATTRIBUTES` | `"host=…,project=…"` | The `host` and `project` filters, project breakdown cards, per-project cost. ccdash reads exactly `host` and `project`; other spellings fall into "(undefined)". | None — labels you define. |
 
 `OTEL_METRICS_INCLUDE_VERSION` is not needed: every log record already carries
