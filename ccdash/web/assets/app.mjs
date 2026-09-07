@@ -7,6 +7,8 @@ import {
   promptDetail,
   callsModal,
   compactionsModal,
+  setupModal,
+  buildSettings,
 } from "./modals.mjs";
 import { analysisTabs, GLOBAL } from "./analysis.mjs";
 import { pages, sessionSubtitle } from "./pages.mjs";
@@ -211,6 +213,7 @@ const MODAL_VIEWS = new Map([
   ["calls", (m) => callsModal(m.label, m.d)],
   ["prompt", (m) => promptDetail(m.d)],
   ["comp", (m) => compactionsModal(m.d.compactions, m.d.context)],
+  ["setup", (m) => setupModal(m.d)],
 ]);
 
 // A stack and not one field per kind: the same kind can appear twice in a chain,
@@ -226,6 +229,24 @@ async function openModal(kind, source, label) {
   const d = typeof source === "string" ? await fetchJson(source) : source;
   modals.push({ k: kind, d, label });
   return reload();
+}
+
+const openSetupFrom = (health) =>
+  openModal("setup", { server_host: health.server_host });
+
+// days=0 so a store whose only data predates the current window still reads as
+// non-empty; one cache key serves both the auto-open and the manual reopen.
+const setupHealth = () => cachedJson("/api/health?days=0&host=&project=");
+
+async function openSetup() {
+  return openSetupFrom(await setupHealth());
+}
+
+async function autoOpenSetupWhenEmpty() {
+  const health = await setupHealth();
+  if (health.metric_points === 0 && health.prompts_total === 0) {
+    return openSetupFrom(health);
+  }
 }
 
 // Main render entry, driven by the URL hash (#/page or #/session/<id>). `force`
@@ -320,6 +341,22 @@ document.addEventListener("change", (e) => {
     reload(true);
   }
 });
+// The setup modal's live inputs. textContent, not innerHTML, so typed values
+// reach the DOM as text; no reload(), which would rebuild the form mid-edit.
+document.addEventListener("input", (e) => {
+  const form = e.target.closest("[data-setup-form]");
+  if (!form) return;
+  const settings = buildSettings({
+    endpoint: form.querySelector("[data-setup-endpoint]").value,
+    host: form.querySelector("[data-setup-host]").value,
+    project: form.querySelector("[data-setup-project]").value,
+    tools: form.querySelector("[data-setup-tools]").checked,
+    prompts: form.querySelector("[data-setup-prompts]").checked,
+    responses: form.querySelector("[data-setup-responses]").checked,
+  });
+  form.querySelector('[data-setup-snippet="global"]').textContent = settings.global;
+  form.querySelector('[data-setup-snippet="project"]').textContent = settings.project;
+});
 // A click is routed by its data-* attribute across handleChrome, handleNavigation,
 // handleControls and handleRowClick, in that order. Each calls reload() itself and
 // returns true once it has taken the click.
@@ -346,6 +383,10 @@ function handleChrome(t) {
   // The scrim covers everything under an open drawer: a click on it is a click out.
   if (t.closest("#scrim")) {
     closeMenu();
+    return true;
+  }
+  if (t.closest("#setup")) {
+    openSetup();
     return true;
   }
   if (t.closest("#refresh")) {
@@ -431,6 +472,16 @@ function handleControls(t) {
   if (t.closest("[data-close]")) {
     modals.pop();
     reload();
+    return true;
+  }
+  // `?.` guards a browser with no clipboard API; both branches report.
+  const copy = t.closest("[data-setup-copy]");
+  if (copy) {
+    const snippet = copy.closest("[data-setup-block]").querySelector("[data-setup-snippet]");
+    navigator.clipboard?.writeText(snippet.textContent).then(
+      () => (copy.textContent = "Copied"),
+      () => (copy.textContent = "Copy failed"),
+    );
     return true;
   }
   const th = t.closest("th");
@@ -529,3 +580,4 @@ addEventListener("hashchange", () => {
 });
 syncDrawer();
 reload();
+autoOpenSetupWhenEmpty();

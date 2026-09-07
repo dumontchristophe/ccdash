@@ -11,7 +11,14 @@ import { readFileSync } from "node:fs";
 import { formatDuration } from "../ccdash/web/assets/format.mjs";
 import { pages, sessionSubtitle } from "../ccdash/web/assets/pages.mjs";
 import { analysisTabs, GLOBAL, SESSION } from "../ccdash/web/assets/analysis.mjs";
-import { hookDetail, promptDetail, callsModal, detailView } from "../ccdash/web/assets/modals.mjs";
+import {
+  hookDetail,
+  promptDetail,
+  callsModal,
+  detailView,
+  setupModal,
+  buildSettings,
+} from "../ccdash/web/assets/modals.mjs";
 import { tab } from "../ccdash/web/assets/state.mjs";
 
 // The one browser global the modals read: `callsModal` drops the origin columns
@@ -68,6 +75,9 @@ const RENDERERS = new Map([
   ["modal:prompt", (data) => promptDetail(data)],
   ["modal:calls", (data) => callsModal(data.label, data.calls)],
   ["modal:event", (data) => detailView(data)],
+  ["modal:setup", (data) => setupModal(data)],
+  // The pure builder behind the modal's two snippets: { global, project }.
+  ["setup:settings", (opts) => buildSettings(opts)],
   // A formatter rather than a renderer, run over a list of seconds so one job
   // covers every branch.
   ["format:duration", (seconds) => seconds.map(formatDuration)],

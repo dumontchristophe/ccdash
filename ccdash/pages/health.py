@@ -7,6 +7,7 @@ and take no scope.
 """
 
 import os
+import socket
 from typing import Any
 
 from ..core import aggregates, request, store
@@ -229,4 +230,7 @@ def api_health(filters: request.Filters) -> dict[str, Any]:
         "db_size": os.path.getsize(store.db_path)
         if store.db_path and os.path.exists(store.db_path)
         else 0,
+        # Pre-fills the setup modal's `host`: the ccdash host, not necessarily
+        # the Claude Code one.
+        "server_host": socket.gethostname(),
     }
