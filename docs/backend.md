@@ -39,7 +39,7 @@ analysis`.
 |---|---|
 | `store.py` | The private connection `_db` and its `_db_lock`, `TABLES`, `INDEXES`, `db_init` / `db_close`, the four query helpers `query` / `query_row` / `query_dicts` / `query_value`, the `write` context manager, and the three decoders both paths need: `as_int`, `as_float`, `tool_input` |
 | `ingest.py` | The write path: `anyvalue`, `kvlist`, `nano_to_s`, `make_label`, `ingest_metrics`, `ingest_logs`, `log_ingest`, `INGESTERS`, `DROP_ATTRS`, plus the transport limits and `inflate` / `read_chunked` |
-| `request.py` | What a request is read through: `Scope`, `Filters`, `one_param` / `int_param`, and the two refusals `NotFoundError` / `BadRequestError` with the bodies `NOT_FOUND` / `BAD_REQUEST` |
+| `request.py` | What a request is read through: `Scope`, `Filters` with its `from_params` constructor, `one_param` / `int_param`, and the two refusals `NotFoundError` / `BadRequestError` with the bodies `NOT_FOUND` / `BAD_REQUEST` |
 | `tz.py` | The display zone, `CCDASH_TZ` read once at startup: `from_env` (which `main` rebinds onto `store.tz`), `to_zone` / `date_to_epoch` for day-bucketing, `zone_name` for `/api/filters`. Sits just above `store` and is its sole reader; `None` means UTC. See [`reference.md`](reference.md#3-display-timezone-ccdash_tz) |
 | `aggregates.py` | The vocabulary the read path shares: `TOKEN_TYPES`, `WEIGHTS`, `KINDS`, `MAIN_THREAD_ORIGINS`, the `SPENT_SESSIONS` / `IDLE_SESSIONS` and `SESSION_TOTALS` fragments, the `HOOK_*` expressions, `short_model`, `attrs_of`, `tokens_by_type`, `weighted_tokens`, `capped`, and the query renderers `scoped` / `windowed` with the `SCOPE_MARK` they fill |
 | `analysis.py` | The analyses a scope is read through — `tool_stats`, `file_stats`, `bash_calls`, `errors_calls`, `provider_errors`, `decisions_stats`, `delegation_types`, `subagents_stats`, `prompt_stats`, `inventory_stats`, `source_breakdown` — plus `api_analysis`, `api_calls` and `ANALYSIS_CAPS` |
@@ -163,8 +163,9 @@ attributes before storage.
 ## API
 
 `API_ROUTES` maps a path to a lambda with a uniform `(params, filters)`
-signature. `filters` is the `Filters` dataclass, carrying the decoded `days`,
-`host` and `project`; each lambda reads only what its `api_*` needs.
+signature. `filters` is the `Filters` dataclass, built by `Filters.from_params`
+and carrying the decoded `days`, `host`, `project`, `start_date` and
+`end_date`; each lambda reads only what its `api_*` needs.
 
 | Route | Answers |
 |---|---|
@@ -182,8 +183,25 @@ signature. `filters` is the `Filters` dataclass, carrying the decoded `days`,
 | `/api/version` | `current` (from `ccdash.__version__`), plus `latest` and `url`, both null until an update check lands |
 | `/health` | liveness only — `{"ok": true}` |
 
-`filters.scope()` renders the `days` window plus `host` and `project` into a
-`Scope`: the SQL clause and its values, as one object. Every aggregate takes a
+`filters.scope()` renders the time window plus `host` and `project` into a
+`Scope`: the SQL clause and its values, as one object. The window is either
+the rolling `days` (a duration back from now; `0` or absent is the whole
+history, there is no server-side default) or an explicit `start_date` /
+`end_date` range in `YYYY-MM-DD`, each bound optional and both inclusive:
+`end_date` covers its whole day. Range days are midnight in `CCDASH_TZ`,
+converted to UTC seconds through `tz.date_to_epoch`. When a range is present
+`from_params` zeroes `days` without reading it, so the two never render
+together and a conflict is not a 400. A date in any other shape, an inverted
+range or a non-numeric `days` is one.
+
+| Parameter | Format | Meaning |
+|---|---|---|
+| `days` | int | Rolling window back from now; `0` or absent is the whole history. Ignored when a date is present |
+| `start_date` | `YYYY-MM-DD` | `ts >= midnight(start_date)` in `CCDASH_TZ` |
+| `end_date` | `YYYY-MM-DD` | `ts < midnight(end_date + 1 day)` in `CCDASH_TZ`, so the day is included |
+| `host` · `project` | string | One machine or one project; `project=(undefined)` selects the rows carrying none |
+
+Every aggregate takes a
 `Scope` — one a route built from its filters, or one built around a single
 session or prompt (`Scope(" AND session_id=?", (session_id,))`), which is how a
 session detail runs the global analyses unchanged. `Scope.narrow()` appends a
@@ -204,9 +222,11 @@ full-table scan.
 
 `filters.scope(previous=True)` slides the window back by its own length — how
 each headline figure carries its change. On the `All` window (`days=0`) it
-produces no clause, so that window carries no comparison.
+produces no clause, so that window carries no comparison; a date range does
+not slide either, and since it zeroes `days` the overview reads it the same
+way.
 
-Besides those three, some routes read a parameter of their own:
+Besides those five, some routes read a parameter of their own:
 
 | Route | Parameters |
 |---|---|

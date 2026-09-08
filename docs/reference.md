@@ -113,7 +113,9 @@ The resolved zone reaches the frontend through `/api/filters` (a `tz` field), so
 the browser renders in the same zone the backend buckets on. **Behaviour change:**
 timestamps used to render in the browser's zone; they now follow `CCDASH_TZ`, and
 UTC when it is unset. The `days` rolling window is unaffected — it is a duration
-back from now, zone-insensitive.
+back from now, zone-insensitive. The API's `start_date` / `end_date` range is
+not: each bound is midnight of that day in `CCDASH_TZ`, converted to UTC before
+the query, so "1 to 15 August" means the caller's August.
 
 ## 4. Durations and hook overhead
 

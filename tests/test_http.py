@@ -302,10 +302,45 @@ class TestGetFilters(HttpCase):
         self.assertEqual(self.calls("days=90"), 5)
         self.assertEqual(self.calls("days=0"), 5)  # 0 = no time filter
 
-    def test_non_numeric_days_falls_back_to_seven(self):
-        self.assertEqual(self.calls("days=abc"), self.calls("days=7"))
-        self.assertNotEqual(self.calls("days=abc"), self.calls("days=1"))
-        self.assertNotEqual(self.calls("days=abc"), self.calls("days=90"))
+    def test_no_days_is_the_whole_history(self):
+        # No server-side default: a bare API call reads everything, the way
+        # the frontend's explicit days=0 does.
+        self.assertEqual(self.calls(""), 5)
+
+    def test_non_numeric_days_is_a_400(self):
+        status, _, body = self.get("/api/overview?days=abc")
+        self.assertEqual(status, 400)
+        self.assertEqual(json.loads(body), {"error": "bad request"})
+
+    def day(self, days_ago):
+        # UTC on purpose: BaseDBTest leaves store.tz at None, so the server
+        # reads these dates as UTC midnights too.
+        return time.strftime("%Y-%m-%d", time.gmtime(time.time() - days_ago * 86400))
+
+    def test_date_range_bounds_both_ends(self):
+        # The row three days back, alone: today's three are past end_date, the
+        # one forty days back is before start_date.
+        query = "start_date=%s&end_date=%s" % (self.day(4), self.day(2))
+        self.assertEqual(self.calls(query), 1)
+
+    def test_end_date_includes_its_whole_day(self):
+        self.assertEqual(self.calls("end_date=%s" % self.day(0)), 5)
+
+    def test_start_date_alone_runs_until_now(self):
+        self.assertEqual(self.calls("start_date=%s" % self.day(4)), 4)
+
+    def test_a_range_wins_over_days(self):
+        self.assertEqual(self.calls("days=1&start_date=%s" % self.day(60)), 5)
+
+    def test_unreadable_range_is_a_400(self):
+        for query in (
+            "start_date=2021-13-01",
+            "end_date=yesterday",
+            "start_date=%s&end_date=%s" % (self.day(2), self.day(4)),
+        ):
+            with self.subTest(query=query):
+                status, _, _ = self.get("/api/overview?" + query)
+                self.assertEqual(status, 400)
 
     def test_filters_endpoint_lists_what_was_seen(self):
         f = self.get_json("/api/filters")

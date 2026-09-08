@@ -8,8 +8,11 @@
 - The running version in the sidebar footer, reported by a new `/api/version` endpoint.
 - A once-a-day check for a newer release, flagged in the sidebar footer by a status dot that links to the release; opt-out via `CCDASH_ENABLE_UPDATE_CHECK`.
 - `CCDASH_TZ`: one configurable IANA timezone every date is bucketed and displayed in, across the cost day chart, the rhythm grid and every timestamp. Unset means UTC; an unknown name warns and falls back to UTC.
+- `start_date` / `end_date` query parameters on every `/api/*` route: an explicit, inclusive `YYYY-MM-DD` range in `CCDASH_TZ`, either bound optional. A range wins over `days`.
 
 ### Changed
+
+- No server-side `days` default: a bare API call reads the whole history (the frontend always sends `days`). A non-numeric `days` is now a 400 rather than seven days.
 
 - Timestamps render in the server's `CCDASH_TZ` zone (UTC by default) rather than the browser's, so day boundaries agree with the backend.
 - Sessions are named by their generated title.
