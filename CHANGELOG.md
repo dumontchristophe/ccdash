@@ -5,10 +5,12 @@
 ### Added
 
 - A setup modal with copy-paste configuration to point Claude Code's telemetry at ccdash.
+- The running version in the sidebar footer, reported by a new `/api/version` endpoint.
 
 ### Changed
 
 - Sessions are named by their generated title.
+- Release tags are now bare `major.minor.patch`, checked in CI against `__version__` (the single source of truth).
 - Telemetry logging defaults are on, with the privacy posture and configuration clarified across Claude surfaces.
 
 ## 1.0.0 — 2026-09-01

@@ -178,6 +178,7 @@ signature. `filters` is the `Filters` dataclass, carrying the decoded `days`,
 | `/api/event?id=` · `/api/subagent?id=` · `/api/prompt?id=` · `/api/hook?name=` | detail for one record |
 | `/api/filters` | the values offered by the host and project dropdowns |
 | `/api/health` | diagnostics: ingestion journal, event and metric names, counters |
+| `/api/version` | `current` (from `ccdash.__version__`), plus `latest` and `url`, both null until an update check lands |
 | `/health` | liveness only — `{"ok": true}` |
 
 `filters.scope()` renders the `days` window plus `host` and `project` into a

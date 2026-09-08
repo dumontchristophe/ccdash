@@ -12,7 +12,7 @@ from dataclasses import replace
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from base import BaseDBTest
 
-from ccdash import api, ingest
+from ccdash import __version__, api, ingest
 from ccdash.core import store
 from ccdash.core.aggregates import WEIGHTS
 from ccdash.core.request import Filters, NotFoundError, Scope
@@ -33,6 +33,7 @@ from ccdash.pages.sessions import (
     api_session,
     api_sessions,
 )
+from ccdash.pages.version import api_version
 
 # The seeds mirror what Claude Code exports: a tool_result sends its numbers as
 # strings, an api_request as integers, and only is_async and is_built_in are real
@@ -3444,6 +3445,16 @@ class TestHealthIsBoundByTheWindow(BaseDBTest):
         # global across hosts and projects by design.
         other = api_health(Filters(days=0, host="nowhere", project="nowhere"))
         self.assertEqual(other["prompts_total"], 2)
+
+
+class TestApiVersion(unittest.TestCase):
+    """No database: the handler only reads the packaged version constant."""
+
+    def test_reports_the_current_version_with_the_check_fields_null(self):
+        self.assertEqual(
+            api_version(),
+            {"current": __version__, "latest": None, "url": None},
+        )
 
 
 if __name__ == "__main__":

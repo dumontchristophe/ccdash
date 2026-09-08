@@ -118,7 +118,7 @@ class HttpCase(BaseDBTest):
 
 
 class TestGetRoutes(HttpCase):
-    """The 15 GET routes answer, and the HTML is served. The list is every key of
+    """The 16 GET routes answer, and the HTML is served. The list is every key of
     API_ROUTES: a route missing from it is a route no test ever reaches through
     the handler, and a typo in its lambda passes the whole suite green."""
 
@@ -140,6 +140,7 @@ class TestGetRoutes(HttpCase):
         "/api/hook": ("?name=x", 200),
         "/api/prompt": ("?id=1", 200),
         "/api/health": ("", 200),
+        "/api/version": ("", 200),
         "/health": ("", 200),
     }
 

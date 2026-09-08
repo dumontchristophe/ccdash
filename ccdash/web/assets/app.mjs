@@ -242,6 +242,12 @@ async function openSetup() {
   return openSetupFrom(await setupHealth());
 }
 
+// Fetched once at boot: the footer markup survives the route re-render.
+async function showVersion() {
+  const { current } = await cachedJson("/api/version");
+  qs("#version").innerHTML = escapeHtml(current);
+}
+
 async function autoOpenSetupWhenEmpty() {
   const health = await setupHealth();
   if (health.metric_points === 0 && health.prompts_total === 0) {
@@ -581,3 +587,4 @@ addEventListener("hashchange", () => {
 syncDrawer();
 reload();
 autoOpenSetupWhenEmpty();
+showVersion();

@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import Any
 
 from .core import request
-from .pages import analysis, costs, details, health, overview, sessions
+from .pages import analysis, costs, details, health, overview, sessions, version
 
 # The canonical list of GET endpoints. Uniform `(params, filters)` signature —
 # the filters are already decoded, each lambda reading only what its `api_*`
@@ -42,6 +42,7 @@ API_ROUTES: dict[str, Callable[[dict[str, list[str]], request.Filters], Any]] = 
         request.one_param(params, "id")
     ),
     "/api/health": lambda params, filters: health.api_health(filters),
+    "/api/version": lambda params, filters: version.api_version(),
     # Liveness only. Whatever polls this -- the container healthcheck, among
     # others -- has no use for the database path or the prompt counters that
     # /api/health carries.

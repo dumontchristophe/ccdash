@@ -3,12 +3,31 @@ name: Release
 # Publishes the image to GHCR on a version tag. The package inherits the repo's
 # visibility, so while the repo is private the image is private too: pulling it
 # needs a `docker login ghcr.io` with a read:packages token.
+# Bare major.minor.patch only -- no `v` prefix, no pre-release suffix. The
+# pattern is a ref filter, so `+` is one-or-more and a trailing `-rc1` fails to
+# match the whole ref.
 on:
   push:
-    tags: ["v*"]
+    tags: ["[0-9]+.[0-9]+.[0-9]+"]
 
 jobs:
+  # The tag is the release's claim about the code; __version__ is the code's own.
+  # They must agree, or the image ships mislabelled -- so a mismatch fails the
+  # pipeline before anything is pushed.
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Tag matches __version__
+        run: |
+          version=$(python3 -c "import ccdash; print(ccdash.__version__)")
+          if [ "$GITHUB_REF_NAME" != "$version" ]; then
+            echo "Tag $GITHUB_REF_NAME != __version__ $version" >&2
+            exit 1
+          fi
+
   image:
+    needs: guard
     runs-on: ubuntu-latest
     permissions:
       contents: read
