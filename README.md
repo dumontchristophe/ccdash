@@ -173,6 +173,8 @@ Two settings, two jobs:
 ```
 CCDASH_BIND=<private IP>        # host-side address to publish on, never 0.0.0.0
 CCDASH_ALLOW_HOST=<IP>,<name>   # every address and name the exporter uses
+CCDASH_TZ=Europe/Paris          # display timezone, IANA name; unset is UTC
+CCDASH_ENABLE_UPDATE_CHECK=1    # 0 turns the daily release check off
 ```
 
 **Python** — `python3 -m ccdash --host <IP> --allow-host <IP> --allow-host <name>`
