@@ -16,6 +16,8 @@ jobs:
   # pipeline before anything is pushed.
   guard:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
       - name: Tag matches __version__
