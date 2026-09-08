@@ -6,6 +6,7 @@
 
 - A setup modal with copy-paste configuration to point Claude Code's telemetry at ccdash.
 - The running version in the sidebar footer, reported by a new `/api/version` endpoint.
+- A once-a-day check for a newer release, flagged in the sidebar footer by a status dot that links to the release; opt-out via `CCDASH_ENABLE_UPDATE_CHECK`.
 
 ### Changed
 
