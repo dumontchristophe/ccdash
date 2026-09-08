@@ -366,6 +366,11 @@ class TestApiWithSeedData(BaseDBTest):
         # everything, so there is no earlier one to compare it against.
         self.assertIsNone(api_overview(NO_FILTER)["prev"])
 
+    def test_no_previous_window_for_a_date_range(self):
+        # A range has no earlier window of its own length to compare with.
+        filters = replace(NO_FILTER, start_date="2021-01-01", end_date="2030-01-01")
+        self.assertIsNone(api_overview(filters)["prev"])
+
     def test_no_previous_window_when_it_holds_nothing(self):
         # Every seeded row is stamped now, so days 14 to 7 back are empty.
         # Comparing against nothing would report a plunge to -100%.

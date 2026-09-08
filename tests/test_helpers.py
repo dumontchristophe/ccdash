@@ -10,6 +10,7 @@ import sys
 import tempfile
 import unittest
 import unittest.mock
+import zoneinfo
 from dataclasses import replace
 
 from base import BaseDBTest
@@ -22,13 +23,13 @@ from ccdash.core.aggregates import (
     success_bool,
     windowed,
 )
-from ccdash.core.request import Scope
+from ccdash.core.request import BadRequestError, Filters, Scope
 from ccdash.pages.sessions import session_figures
 from ccdash.pages.version import is_newer
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from ccdash import ingest
-from ccdash.core import store
+from ccdash.core import store, tz
 
 
 class TestModuleSurface(unittest.TestCase):
@@ -359,6 +360,103 @@ class TestFiltersScope(unittest.TestCase):
         clause = replace(NO_FILTER, days=7).scope(previous=True).clause
         self.assertIn("-14 days", clause)
         self.assertIn("-7 days", clause)
+
+
+class TestFiltersScopeDateRange(unittest.TestCase):
+    """A range renders as two bound epochs: midnight of the start day and
+    midnight of the day after the end day, so the end day is included."""
+
+    def setUp(self):
+        self._saved = store.tz
+        store.tz = None
+
+    def tearDown(self):
+        store.tz = self._saved
+
+    def test_both_bounds_render_as_epochs(self):
+        scope = replace(
+            NO_FILTER, start_date="1970-01-02", end_date="1970-01-03"
+        ).scope()
+        self.assertEqual(scope.clause, " AND ts >= ? AND ts < ?")
+        self.assertEqual(scope.args, (86400, 3 * 86400))
+
+    def test_each_bound_stands_alone(self):
+        start = replace(NO_FILTER, start_date="1970-01-02").scope()
+        self.assertEqual(start.clause, " AND ts >= ?")
+        self.assertEqual(start.args, (86400,))
+        end = replace(NO_FILTER, end_date="1970-01-02").scope()
+        self.assertEqual(end.clause, " AND ts < ?")
+        self.assertEqual(end.args, (2 * 86400,))
+
+    def test_bounds_are_midnight_in_the_configured_zone(self):
+        store.tz = zoneinfo.ZoneInfo("Europe/Paris")
+        # CET is UTC+1: Paris midnight is 23:00 UTC the evening before.
+        scope = replace(NO_FILTER, start_date="1970-01-02").scope()
+        self.assertEqual(scope.args, (86400 - 3600,))
+
+    def test_end_bound_survives_a_dst_switch(self):
+        # 2021-03-28 is the CET->CEST switch: the day is 23 hours long, so
+        # adding 86400 to its midnight would overshoot the next one by an hour.
+        store.tz = zoneinfo.ZoneInfo("Europe/Paris")
+        scope = replace(NO_FILTER, end_date="2021-03-28").scope()
+        self.assertEqual(scope.args, (tz.date_to_epoch("2021-03-29"),))
+
+    def test_range_survives_window_only(self):
+        scope = replace(
+            NO_FILTER, start_date="1970-01-02", host="h1", project="p1"
+        ).scope(window_only=True)
+        self.assertEqual(scope.clause, " AND ts >= ?")
+        self.assertEqual(scope.args, (86400,))
+
+    def test_previous_leaves_a_range_unchanged(self):
+        filters = replace(NO_FILTER, start_date="1970-01-02", end_date="1970-01-03")
+        self.assertEqual(filters.scope(previous=True), filters.scope())
+
+
+class TestFiltersFromParams(unittest.TestCase):
+    """The query string read into a Filters, and the three refusals. Parsing
+    keeps the dates as strings, so the zone plays no part here."""
+
+    def test_no_parameters_is_the_whole_history(self):
+        self.assertEqual(Filters.from_params({}), NO_FILTER)
+
+    def test_every_parameter_reaches_its_field(self):
+        got = Filters.from_params(
+            {
+                "days": ["30"],
+                "host": ["h1"],
+                "project": ["p1"],
+            }
+        )
+        self.assertEqual(got, Filters(days=30, host="h1", project="p1"))
+
+    def test_a_range_zeroes_days(self):
+        got = Filters.from_params(
+            {"days": ["7"], "start_date": ["2021-06-01"], "end_date": ["2021-06-15"]}
+        )
+        self.assertEqual(got.days, 0)
+        self.assertEqual(got.start_date, "2021-06-01")
+        self.assertEqual(got.end_date, "2021-06-15")
+
+    def test_an_open_bound_stands_alone(self):
+        self.assertEqual(
+            Filters.from_params({"end_date": ["2021-06-15"]}).end_date, "2021-06-15"
+        )
+
+    def test_refusals(self):
+        cases = [
+            ("non-numeric days", {"days": ["abc"]}),
+            ("unparseable date", {"start_date": ["2021-6-1"]}),
+            ("not a date", {"end_date": ["yesterday"]}),
+            (
+                "inverted range",
+                {"start_date": ["2021-06-15"], "end_date": ["2021-06-01"]},
+            ),
+        ]
+        for label, params in cases:
+            with self.subTest(label=label):
+                with self.assertRaises(BadRequestError):
+                    Filters.from_params(params)
 
 
 class TestScope(unittest.TestCase):

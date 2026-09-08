@@ -236,12 +236,6 @@ class Handler(BaseHTTPRequestHandler):
                 ingest.log_ingest(HOST_REFUSED_KIND, 0, 0, HOST_REFUSED)
             self.log_message("host %r refused on %s", self.headers.get("Host"), p)
             return self._send(403, '{"error":"host"}')
-        days = store.as_int(request.one_param(params, "days", "7"))
-        filters = request.Filters(
-            days=7 if days is None else days,
-            host=request.one_param(params, "host") or None,
-            project=request.one_param(params, "project") or None,
-        )
         try:
             if p in ("/", "/index.html"):
                 return self._send(200, PAGE, "text/html; charset=utf-8")
@@ -250,6 +244,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, asset[0], asset[1])
             handler = api.API_ROUTES.get(p)
             if handler is not None:
+                filters = request.Filters.from_params(params)
                 return self._send(200, encode_body(handler(params, filters)))
         # A record that is not there is an answer, not a server failure.
         except request.NotFoundError:
