@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `compose.yml` now passes `CCDASH_TZ` and `CCDASH_ENABLE_UPDATE_CHECK` from `.env` into the container; setting them in `.env` had no effect on a compose deployment.
+
 ## 1.1.0 — 2026-09-08
 
 ### Added

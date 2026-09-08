@@ -8,6 +8,8 @@ services:
     - "${CCDASH_BIND:-127.0.0.1}:4318:4318"
     environment:
       CCDASH_ALLOW_HOST: "${CCDASH_ALLOW_HOST:-}"
+      CCDASH_TZ: "${CCDASH_TZ:-}"
+      CCDASH_ENABLE_UPDATE_CHECK: "${CCDASH_ENABLE_UPDATE_CHECK:-1}"
 
     volumes:
       - ./data:/data
