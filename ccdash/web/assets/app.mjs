@@ -1,5 +1,5 @@
 import { cache, page as pageState, pager, sort, tab } from "./state.mjs";
-import { escapeHtml, qs } from "./format.mjs";
+import { escapeHtml, qs, setDisplayZone } from "./format.mjs";
 import {
   detailView,
   subagentDetail,
@@ -287,6 +287,10 @@ async function route(force = false) {
   // refetches them; only the refresh button drops the entry to pick up a new host
   // or project.
   const filterOptions = await cachedJson("/api/filters");
+  // Every timestamp renders in the server's zone, so a day header agrees with
+  // the backend's day-bucketing; unset CCDASH_TZ sends "UTC" and drops the
+  // former browser-zone rendering.
+  setDisplayZone(filterOptions.tz);
   qs("#main").innerHTML = `
     <div class="head max-md:flex-col max-md:gap-3"><div style="display:flex;gap:13px;align-items:center;min-width:0">${backLink}
       <div class=min-w-0><h1>${escapeHtml(title)}</h1><div class=sub>${sub}</div></div></div>

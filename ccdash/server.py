@@ -19,7 +19,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from . import api, ingest
-from .core import request, store
+from .core import request, store, tz
 from .pages import version
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -289,10 +289,13 @@ def main() -> None:
             "%s goes in --allow-host" % (a.host, ", ".join(sorted(LOOPBACK_HOSTS)))
         )
     store.db_path, store.verbose = a.db, a.verbose
+    store.tz = tz.from_env()
     store.db_init(a.db)
     version.start_update_check()
     print("ccdash  http://%s:%d/   db=%s" % (a.host, a.port, a.db))
-    print("        hosts=%s" % ", ".join(sorted(allowed_hosts)))
+    print(
+        "        hosts=%s   tz=%s" % (", ".join(sorted(allowed_hosts)), tz.zone_name())
+    )
     try:
         ThreadingHTTPServer((a.host, a.port), Handler).serve_forever()
     except KeyboardInterrupt:

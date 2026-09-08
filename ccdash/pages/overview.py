@@ -2,10 +2,9 @@
 payload built around them.
 """
 
-from datetime import datetime
 from typing import Any
 
-from ..core import aggregates, request, store
+from ..core import aggregates, request, store, tz
 from . import analysis, costs
 
 
@@ -23,9 +22,10 @@ def _dropdown_values(column: str) -> list[str]:
     ]
 
 
-def api_filters() -> dict[str, list[str]]:
-    """What the two dropdowns offer, from both tables: metrics and logs are
-    separate exports, and every analysis view reads events."""
+def api_filters() -> dict[str, Any]:
+    """What the two dropdowns offer, from both tables, and the display zone the
+    frontend renders in: metrics and logs are separate exports, and every
+    analysis view reads events."""
     hosts = _dropdown_values("host")
     projects = _dropdown_values("project")
     # Without OTEL_RESOURCE_ATTRIBUTES=project=..., sessions arrive with none:
@@ -34,7 +34,9 @@ def api_filters() -> dict[str, list[str]]:
         "SELECT 1 FROM metric_points WHERE project IS NULL LIMIT 1"
     ) or store.query_row("SELECT 1 FROM events WHERE project IS NULL LIMIT 1"):
         projects.append("(undefined)")
-    return {"hosts": hosts, "projects": projects}
+    # The zone reaches the frontend here rather than on a fetch of its own: the
+    # router already caches /api/filters before the body renders.
+    return {"hosts": hosts, "projects": projects, "tz": tz.zone_name()}
 
 
 def headline_figures(
@@ -136,7 +138,7 @@ def api_overview(filters: request.Filters) -> dict[str, Any]:
             group="bucket",
         )
     ):
-        local = datetime.fromtimestamp(row["bucket"] * 900)
+        local = tz.to_zone(row["bucket"] * 900)
         rhythm[local.weekday()][local.hour] += row["points"]
 
     return {

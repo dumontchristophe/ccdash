@@ -98,7 +98,24 @@ per-repository attribution, put `OTEL_RESOURCE_ATTRIBUTES` in the repo's
 `OTEL_METRICS_INCLUDE_VERSION` is not needed: every log record already carries
 `service.version`, which is what the line under a session title reads.
 
-## 3. Durations and hook overhead
+## 3. Display timezone (`CCDASH_TZ`)
+
+Read by the **ccdash server** (not Claude Code), once at startup. It sets the one
+zone every date is interpreted and displayed in, so day boundaries and shown
+times agree across every view: the cost day chart, the weekly rhythm grid, and
+every frontend timestamp.
+
+- Holds an IANA name (`Europe/Paris`), resolved through the stdlib `zoneinfo`.
+- **Unset ⇒ UTC**, silently.
+- **Unknown name ⇒ UTC**, with a one-line warning on stderr — never a crash.
+
+The resolved zone reaches the frontend through `/api/filters` (a `tz` field), so
+the browser renders in the same zone the backend buckets on. **Behaviour change:**
+timestamps used to render in the browser's zone; they now follow `CCDASH_TZ`, and
+UTC when it is unset. The `days` rolling window is unaffected — it is a duration
+back from now, zone-insensitive.
+
+## 4. Durations and hook overhead
 
 ### Two notions of session length
 
@@ -146,7 +163,7 @@ that isn't 2 — and Claude Code carried on; nothing else surfaces a silently
 broken hook. `Blocks` (`num_blocking`) means the hook **refused** the action, via
 exit code 2 or a `deny` decision. One is a defect, the other the feature working.
 
-## 4. Click-through detail (what is and isn't available)
+## 5. Click-through detail (what is and isn't available)
 
 Rows open a detail modal in **Tools**, **Bash**, **Prompts**, **Sub-agents**,
 the **Failures** table (Other), the **Files** tab of a session, and the **Hooks**

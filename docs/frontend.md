@@ -15,7 +15,7 @@ outside `#main` because `route()` rewrites `#main` wholesale on every render.
 | Module | Contains |
 |---|---|
 | `state.mjs` | `sort`, `tab`, `pager`, `page` — plain objects, mutated by property, never reassigned |
-| `format.mjs` | `qs`, the formatters, `escapeHtml`, `MODEL_COLORS`, `TOKEN_TYPES` |
+| `format.mjs` | `qs`, the formatters, `escapeHtml`, `MODEL_COLORS`, `TOKEN_TYPES`, and the module-level `displayZone` (`setDisplayZone`) the three `toLocale*` formatters render in — `app.mjs` sets it from `/api/filters` `tz`, "UTC" until then |
 | `charts.mjs` | the inline-SVG generators |
 | `components.mjs` | `renderTable`, `paginate`, `renderTabs`, `statCard`, `numCell`, `bytesCell`, the shared columns (`whenCol`, `originCols`) |
 | `tables.mjs` | one column-definition set per table |

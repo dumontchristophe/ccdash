@@ -18,7 +18,7 @@ ccdash/
   pages/          the endpoints, one file per domain
     overview.py  costs.py  sessions.py  details.py  health.py  analysis.py
   core/           the shared read path
-    aggregates.py  request.py  store.py
+    aggregates.py  request.py  tz.py  store.py
   web/            the served frontend: index.html, assets/
 ```
 
@@ -40,6 +40,7 @@ analysis`.
 | `store.py` | The private connection `_db` and its `_db_lock`, `TABLES`, `INDEXES`, `db_init` / `db_close`, the four query helpers `query` / `query_row` / `query_dicts` / `query_value`, the `write` context manager, and the three decoders both paths need: `as_int`, `as_float`, `tool_input` |
 | `ingest.py` | The write path: `anyvalue`, `kvlist`, `nano_to_s`, `make_label`, `ingest_metrics`, `ingest_logs`, `log_ingest`, `INGESTERS`, `DROP_ATTRS`, plus the transport limits and `inflate` / `read_chunked` |
 | `request.py` | What a request is read through: `Scope`, `Filters`, `one_param` / `int_param`, and the two refusals `NotFoundError` / `BadRequestError` with the bodies `NOT_FOUND` / `BAD_REQUEST` |
+| `tz.py` | The display zone, `CCDASH_TZ` read once at startup: `from_env` (which `main` rebinds onto `store.tz`), `to_zone` / `date_to_epoch` for day-bucketing, `zone_name` for `/api/filters`. Sits just above `store` and is its sole reader; `None` means UTC. See [`reference.md`](reference.md#3-display-timezone-ccdash_tz) |
 | `aggregates.py` | The vocabulary the read path shares: `TOKEN_TYPES`, `WEIGHTS`, `KINDS`, `MAIN_THREAD_ORIGINS`, the `SPENT_SESSIONS` / `IDLE_SESSIONS` and `SESSION_TOTALS` fragments, the `HOOK_*` expressions, `short_model`, `attrs_of`, `tokens_by_type`, `weighted_tokens`, `capped`, and the query renderers `scoped` / `windowed` with the `SCOPE_MARK` they fill |
 | `analysis.py` | The analyses a scope is read through — `tool_stats`, `file_stats`, `bash_calls`, `errors_calls`, `provider_errors`, `decisions_stats`, `delegation_types`, `subagents_stats`, `prompt_stats`, `inventory_stats`, `source_breakdown` — plus `api_analysis`, `api_calls` and `ANALYSIS_CAPS` |
 | `sessions.py` | A session listed and opened: `session_titles`, `session_models`, `session_figures`, `api_sessions`, `api_session`, `api_context`, and `SESSION_MAX_ROWS` |

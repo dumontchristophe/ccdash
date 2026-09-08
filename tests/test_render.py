@@ -282,6 +282,31 @@ class TestDurationsCarryTheirUnits(unittest.TestCase):
 @unittest.skipIf(
     shutil.which("node") is None, "node is required to execute the renderers"
 )
+class TestTimestampsRenderInTheDisplayZone(unittest.TestCase):
+    """The formatters honour the zone /api/filters hands the frontend, so a day
+    header agrees with the backend's day-bucketing.
+
+    2021-01-01 23:30 UTC is already 2021-01-02 in Paris (+1): the same instant
+    prints a different day and hour once the zone is set."""
+
+    TS = 1609543800  # 2021-01-01 23:30:00 UTC
+
+    def test_utc_is_the_default(self):
+        got = render([("format:zoned", {"zone": "UTC", "ts": self.TS})])["format:zoned"]
+        self.assertEqual(got["date"], "Fri, Jan 01")
+        self.assertEqual(got["time"], "11:30:00 PM")
+
+    def test_a_named_zone_shifts_the_day_and_hour(self):
+        got = render([("format:zoned", {"zone": "Europe/Paris", "ts": self.TS})])[
+            "format:zoned"
+        ]
+        self.assertEqual(got["date"], "Sat, Jan 02")
+        self.assertEqual(got["time"], "12:30:00 AM")
+
+
+@unittest.skipIf(
+    shutil.which("node") is None, "node is required to execute the renderers"
+)
 class TestRenderersRunOnARealPayload(BaseDBTest):
     """One seeded window, every page and every analysis tab rendered from it.
 
