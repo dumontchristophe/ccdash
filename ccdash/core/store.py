@@ -10,12 +10,15 @@ import stat
 import sys
 import threading
 import zlib
+import zoneinfo
 from collections.abc import Iterator, Sequence
 from typing import Any, overload
 
-# Lowercase: `main` rebinds both.
+# Lowercase: `main` rebinds all three. `tz` is None for UTC; `core.tz` is its
+# sole reader, so nothing else touches it directly.
 db_path = ""
 verbose = False
+tz: zoneinfo.ZoneInfo | None = None
 
 # The -wal and -shm siblings carry the same rows, so they carry the same mode.
 DIR_MODE = 0o700

@@ -1,5 +1,14 @@
 const qs = (s) => document.querySelector(s);
 
+// The zone every timestamp is rendered in, set once from /api/filters so the
+// frontend matches the day boundaries the backend buckets on. "UTC" until then,
+// which is also the default when CCDASH_TZ is unset. format.mjs cannot import
+// state.mjs (that points up the module list), so the zone is its own state.
+let displayZone = "UTC";
+const setDisplayZone = (name) => {
+  displayZone = name || "UTC";
+};
+
 // Compact number: 1234 -> "1.2K", 3.4e6 -> "3.4M", 2e9 -> "2.00G".
 const formatNumber = (n) => {
   n = +n || 0;
@@ -42,6 +51,7 @@ const formatDuration = (s) => {
 // Unix seconds -> localized "Jan 12, 02:30 PM".
 const formatDateTime = (t) =>
   new Date(t * 1000).toLocaleString("en-US", {
+    timeZone: displayZone,
     day: "2-digit",
     month: "short",
     hour: "2-digit",
@@ -50,6 +60,7 @@ const formatDateTime = (t) =>
 // Unix seconds -> localized "Wed, Jan 12".
 const formatDate = (t) =>
   new Date(t * 1000).toLocaleDateString("en-US", {
+    timeZone: displayZone,
     weekday: "short",
     day: "2-digit",
     month: "short",
@@ -57,6 +68,7 @@ const formatDate = (t) =>
 // Unix seconds -> localized "02:30:05 PM".
 const formatTime = (t) =>
   new Date(t * 1000).toLocaleTimeString("en-US", {
+    timeZone: displayZone,
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -98,6 +110,7 @@ export {
   formatDateTime,
   formatDate,
   formatTime,
+  setDisplayZone,
   escapeHtml,
   modelColor,
   TOKEN_TYPES,

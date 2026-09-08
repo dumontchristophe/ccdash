@@ -7,9 +7,11 @@
 - A setup modal with copy-paste configuration to point Claude Code's telemetry at ccdash.
 - The running version in the sidebar footer, reported by a new `/api/version` endpoint.
 - A once-a-day check for a newer release, flagged in the sidebar footer by a status dot that links to the release; opt-out via `CCDASH_ENABLE_UPDATE_CHECK`.
+- `CCDASH_TZ`: one configurable IANA timezone every date is bucketed and displayed in, across the cost day chart, the rhythm grid and every timestamp. Unset means UTC; an unknown name warns and falls back to UTC.
 
 ### Changed
 
+- Timestamps render in the server's `CCDASH_TZ` zone (UTC by default) rather than the browser's, so day boundaries agree with the backend.
 - Sessions are named by their generated title.
 - Release tags are now bare `major.minor.patch`, checked in CI against `__version__` (the single source of truth).
 - Telemetry logging defaults are on, with the privacy posture and configuration clarified across Claude surfaces.

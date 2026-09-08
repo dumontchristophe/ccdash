@@ -8,6 +8,7 @@ import sys
 import time
 import unittest
 import unittest.mock
+import zoneinfo
 from dataclasses import replace
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -393,14 +394,14 @@ class TestApiWithSeedData(BaseDBTest):
         self.assertEqual(len(rhythm), 7)
         self.assertTrue(all(len(row) == 24 for row in rhythm))
 
-    def test_overview_rhythm_agrees_with_python_localtime(self):
-        # Two independent derivations of the same cell, SQLite's strftime against
-        # Python's localtime: a divergence is the day-shift the heatmap is exposed
-        # to, and it only shows up around a DST boundary.
+    def test_overview_rhythm_agrees_with_utc_when_the_zone_is_unset(self):
+        # store.tz is None in the tests, so the grid buckets in UTC, not the OS
+        # zone: a divergence from time.gmtime is the day-shift the heatmap is
+        # exposed to, and it only shows up around a DST boundary.
         expected = {}
         for r in store.query("SELECT ts FROM metric_points"):
-            lt = time.localtime(r["ts"])
-            cell = (lt.tm_wday, lt.tm_hour)
+            gt = time.gmtime(r["ts"])
+            cell = (gt.tm_wday, gt.tm_hour)
             expected[cell] = expected.get(cell, 0) + 1
         self.assertTrue(
             expected, "no metric point seeded: the comparison would be vacuous"
@@ -410,6 +411,26 @@ class TestApiWithSeedData(BaseDBTest):
             (d, h): n for d, row in enumerate(rhythm) for h, n in enumerate(row) if n
         }
         self.assertEqual(got, expected)
+
+    def test_overview_rhythm_follows_the_configured_zone(self):
+        # A fixed epoch under a fixed zone: the cell it lands in has to be the one
+        # the configured zone names, not the one UTC would.
+        with store.write() as db:
+            db.execute("DELETE FROM metric_points")
+        seed_metric("claude_code.cost.usage", 1.0, "rhythm-sess")
+        with store.write() as db:
+            # 2021-01-04 (a Monday) 23:20 UTC -> Tuesday 00:20 in Paris (+1).
+            db.execute(
+                "UPDATE metric_points SET ts=1609802400 WHERE session_id='rhythm-sess'"
+            )
+        saved = store.tz
+        store.tz = zoneinfo.ZoneInfo("Europe/Paris")
+        try:
+            rhythm = api_overview(NO_FILTER)["rhythm"]
+        finally:
+            store.tz = saved
+        cells = {(d, h) for d, row in enumerate(rhythm) for h, n in enumerate(row) if n}
+        self.assertEqual(cells, {(1, 0)})
 
     def test_a_session_row_carries_the_seeded_figures_of_its_own_session(self):
         # One row per seeded session, each naming itself, its tools, its tokens
@@ -555,6 +576,28 @@ class TestApiWithSeedData(BaseDBTest):
             },
         )
 
+    def test_costs_daily_series_buckets_by_the_configured_zone(self):
+        # 2021-01-01 23:30 UTC is already 2021-01-02 in Paris (+1): the day key
+        # has to follow the configured zone, not the UTC calendar day.
+        with store.write() as db:
+            db.execute("DELETE FROM metric_points")
+        seed_metric("claude_code.cost.usage", 1.0, "day-sess")
+        with store.write() as db:
+            db.execute(
+                "UPDATE metric_points SET ts=1609543800 WHERE session_id='day-sess'"
+            )
+        self.assertEqual(
+            [r["d"] for r in api_costs(NO_FILTER)["series"]], ["2021-01-01"]
+        )
+        saved = store.tz
+        store.tz = zoneinfo.ZoneInfo("Europe/Paris")
+        try:
+            self.assertEqual(
+                [r["d"] for r in api_costs(NO_FILTER)["series"]], ["2021-01-02"]
+            )
+        finally:
+            store.tz = saved
+
     def test_costs_are_broken_down_per_model_family(self):
         # One entry per family seeded, each carrying the spending and the token
         # counts of that family alone.
@@ -634,6 +677,17 @@ class TestApiWithSeedData(BaseDBTest):
         self.assertIn("loghost", result["hosts"])
         # Still there once, not once per table.
         self.assertEqual(result["projects"].count("testproj"), 1)
+
+    def test_filters_carry_the_display_zone(self):
+        # The frontend reads it here to render in the same zone the backend
+        # buckets on: "UTC" when store.tz is None, the IANA name otherwise.
+        self.assertEqual(api_filters()["tz"], "UTC")
+        saved = store.tz
+        store.tz = zoneinfo.ZoneInfo("Europe/Paris")
+        try:
+            self.assertEqual(api_filters()["tz"], "Europe/Paris")
+        finally:
+            store.tz = saved
 
     def test_calls_returns_one_row_per_call_of_the_named_tool(self):
         result = api_calls("Bash", NO_FILTER)

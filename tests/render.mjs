@@ -8,7 +8,12 @@
 //   stdin  [{ "name": <job>, "data": <payload> }, ...]
 //   stdout { "<job>": <whatever the job returned> | { "error": "<message>" } }
 import { readFileSync } from "node:fs";
-import { formatDuration } from "../ccdash/web/assets/format.mjs";
+import {
+  formatDuration,
+  formatDate,
+  formatTime,
+  setDisplayZone,
+} from "../ccdash/web/assets/format.mjs";
 import { pages, sessionSubtitle } from "../ccdash/web/assets/pages.mjs";
 import { analysisTabs, GLOBAL, SESSION } from "../ccdash/web/assets/analysis.mjs";
 import {
@@ -81,6 +86,15 @@ const RENDERERS = new Map([
   // A formatter rather than a renderer, run over a list of seconds so one job
   // covers every branch.
   ["format:duration", (seconds) => seconds.map(formatDuration)],
+  // Proves the timeZone option is honoured: sets the display zone, then formats
+  // one Unix second as a date and a time. { zone, ts } -> { date, time }.
+  [
+    "format:zoned",
+    ({ zone, ts }) => {
+      setDisplayZone(zone);
+      return { date: formatDate(ts), time: formatTime(ts) };
+    },
+  ],
 ]);
 
 // Null prototype: a job named `__proto__` has to land as an own property, not

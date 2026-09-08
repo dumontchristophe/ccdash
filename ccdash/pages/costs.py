@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from ..core import aggregates, request, store
+from ..core import aggregates, request, store, tz
 
 
 def api_projects(filters: request.Filters) -> list[dict[str, Any]]:
@@ -83,17 +83,21 @@ def api_costs(filters: request.Filters) -> dict[str, Any]:
     """
     scope = filters.scope()
     stack: dict[str, dict[str, Any]] = {}
+    # The local day boundary shifts with the configured offset (and DST), so the
+    # day can no longer be computed in SQL: group by the same 15-minute granule
+    # the rhythm grid uses -- every real UTC offset is a multiple of 15 min, so a
+    # bucket never straddles a local-day boundary -- and bucket to a day in Python.
     for row in store.query(
         *aggregates.scoped(
-            "date(ts,'unixepoch','localtime') d, model, SUM(value) value",
+            "ts/900 bucket, model, SUM(value) value",
             "metric_points WHERE name='claude_code.cost.usage'" + aggregates.SCOPE_MARK,
             scope,
-            group="d, model",
-            order="d",
+            group="bucket, model",
+            order="bucket",
         )
     ):
         family = aggregates.short_model(row["model"]) or "?"
-        day = stack.setdefault(row["d"], {})
+        day = stack.setdefault(tz.to_zone(row["bucket"] * 900).strftime("%Y-%m-%d"), {})
         day[family] = day.get(family, 0) + (row["value"] or 0)
     series = [{"d": day, **costs} for day, costs in sorted(stack.items())]
     families = sorted({family for costs in stack.values() for family in costs})
