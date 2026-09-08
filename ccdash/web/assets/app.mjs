@@ -242,10 +242,19 @@ async function openSetup() {
   return openSetupFrom(await setupHealth());
 }
 
-// Fetched once at boot: the footer markup survives the route re-render.
+// Fetched once at boot: the footer markup survives the route re-render. A dot
+// beside the version reports the daily release check -- a pulsing red one with
+// "Update available", linked to the release, when a newer one exists; a still
+// green one when we are on the latest.
 async function showVersion() {
-  const { current } = await cachedJson("/api/version");
-  qs("#version").innerHTML = escapeHtml(current);
+  const { current, latest, url } = await cachedJson("/api/version");
+  const status = latest
+    ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"
+        title="New version available: ${escapeHtml(latest)}"
+        style="color:var(--red)"
+        ><span class="update-dot">&#9679;</span> Update available</a>`
+    : `<span title="Up to date" style="color:#2ea043">&#9679;</span>`;
+  qs("#version").innerHTML = `${escapeHtml(current)} ${status}`;
 }
 
 async function autoOpenSetupWhenEmpty() {

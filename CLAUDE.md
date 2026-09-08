@@ -26,6 +26,8 @@ if you miss them:
 
 - **No runtime dependency, no outbound network.** Python stdlib and ES modules
   only — no pip, npm, manifest, lockfile. `ruff`/`mypy` are CI-pinned dev tools.
+  The one sanctioned outbound call is the daily release check against
+  `api.github.com` (opt-out via `CCDASH_ENABLE_UPDATE_CHECK`); see `SECURITY.md`.
 - **Never edit `ccdash/web/assets/ccdash.css`** — it is generated from `styles/input.css`.
 - **Every payload value goes through `escapeHtml`**; a lookup keyed by one needs
   a `Map`, not an object literal.

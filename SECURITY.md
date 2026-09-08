@@ -99,11 +99,18 @@ address the port is published on, defaulting to `127.0.0.1`.
 
 ## No outbound network
 
-The server makes no external call and the frontend loads nothing remote — no
-CDN, font, analytics or update check. This is checkable, not a claim to trust:
-`ccdash/` is Python standard library only and the UI is ES modules served as
-written. There is no `requirements.txt`, `package.json` or lockfile, so there is
-no third-party runtime code to audit.
+The server makes one external call and the frontend loads nothing remote — no
+CDN, font or analytics. This is checkable, not a claim to trust: `ccdash/` is
+Python standard library only and the UI is ES modules served as written. There
+is no `requirements.txt`, `package.json` or lockfile, so there is no
+third-party runtime code to audit.
+
+The one exception is the update check: once a day (and at startup) the server
+asks `api.github.com` for ccdash's own latest release, off a background thread,
+to flag a newer version in the sidebar. It reads no response beyond the release
+tag. Set `CCDASH_ENABLE_UPDATE_CHECK` to a falsy value (`0`, `false`, `no`,
+`off`) to switch it off entirely: no thread, no outbound call, a fully offline
+instance.
 
 ## Reporting a vulnerability
 
