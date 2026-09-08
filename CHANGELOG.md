@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 — 2026-09-08
 
 ### Added
 
@@ -13,7 +13,6 @@
 ### Changed
 
 - No server-side `days` default: a bare API call reads the whole history (the frontend always sends `days`). A non-numeric `days` is now a 400 rather than seven days.
-
 - Timestamps render in the server's `CCDASH_TZ` zone (UTC by default) rather than the browser's, so day boundaries agree with the backend.
 - Sessions are named by their generated title.
 - Release tags are now bare `major.minor.patch`, checked in CI against `__version__` (the single source of truth).
