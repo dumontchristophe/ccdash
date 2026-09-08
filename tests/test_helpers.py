@@ -24,6 +24,7 @@ from ccdash.core.aggregates import (
 )
 from ccdash.core.request import Scope
 from ccdash.pages.sessions import session_figures
+from ccdash.pages.version import is_newer
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from ccdash import ingest
@@ -616,6 +617,26 @@ class TestSessionFigures(unittest.TestCase):
         session_figures(row, {})
         self.assertEqual(row["output_weight_pct"], 0)
         self.assertEqual(row["tokens"], 0)
+
+
+class TestVersionCompare(unittest.TestCase):
+    """`is_newer` compares bare major.minor.patch tags; anything that is not
+    exactly three integers is "no update"."""
+
+    def test_a_higher_tag_is_newer(self):
+        self.assertTrue(is_newer("1.2.0", "1.1.9"))
+
+    def test_a_lower_tag_is_not_newer(self):
+        self.assertFalse(is_newer("1.0.9", "1.1.0"))
+
+    def test_an_equal_tag_is_not_newer(self):
+        self.assertFalse(is_newer("1.1.0", "1.1.0"))
+
+    def test_an_unparsable_tag_is_not_newer(self):
+        self.assertFalse(is_newer("v1.1.0", "1.0.0"))
+        self.assertFalse(is_newer("1.1", "1.0.0"))
+        self.assertFalse(is_newer("1.1.0-rc1", "1.0.0"))
+        self.assertFalse(is_newer("nightly", "1.0.0"))
 
 
 if __name__ == "__main__":

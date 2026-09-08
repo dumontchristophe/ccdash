@@ -242,10 +242,15 @@ async function openSetup() {
   return openSetupFrom(await setupHealth());
 }
 
-// Fetched once at boot: the footer markup survives the route re-render.
+// Fetched once at boot: the footer markup survives the route re-render. The
+// update link shows only when the server's daily check found a newer release.
 async function showVersion() {
-  const { current } = await cachedJson("/api/version");
-  qs("#version").innerHTML = escapeHtml(current);
+  const { current, latest, url } = await cachedJson("/api/version");
+  const update = latest
+    ? ` &middot; <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"
+        >New version available &rarr; ${escapeHtml(latest)}</a>`
+    : "";
+  qs("#version").innerHTML = escapeHtml(current) + update;
 }
 
 async function autoOpenSetupWhenEmpty() {

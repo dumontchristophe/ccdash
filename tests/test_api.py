@@ -7,6 +7,7 @@ import statistics
 import sys
 import time
 import unittest
+import unittest.mock
 from dataclasses import replace
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -16,7 +17,7 @@ from ccdash import __version__, api, ingest
 from ccdash.core import store
 from ccdash.core.aggregates import WEIGHTS
 from ccdash.core.request import Filters, NotFoundError, Scope
-from ccdash.pages import sessions
+from ccdash.pages import sessions, version
 from ccdash.pages.analysis import (
     ANALYSIS_CAPS,
     api_analysis,
@@ -2883,9 +2884,9 @@ class TestTheSessionPanelKnowsWhereItRan(BaseDBTest):
     def test_the_versions_come_in_the_order_they_appeared(self):
         """Not the alphabetical order: 2.1.76 sorts after 2.1.237 as text, and a
         session that updated mid-run would read as having gone backwards."""
-        for version in ("2.1.76", "2.1.161"):
+        for ver in ("2.1.76", "2.1.161"):
             seed_log_event(
-                "api_request", self.SID, [_attr("service.version", _str(version))]
+                "api_request", self.SID, [_attr("service.version", _str(ver))]
             )
         self.assertEqual(
             api_session(self.SID)["head"]["versions"], ["2.1.76", "2.1.161"]
@@ -3448,9 +3449,45 @@ class TestHealthIsBoundByTheWindow(BaseDBTest):
 
 
 class TestApiVersion(unittest.TestCase):
-    """No database: the handler only reads the packaged version constant."""
+    """No database: the handler reads the packaged constant and whatever the
+    last update check stored in memory."""
+
+    def setUp(self):
+        version._latest = None
+        self.addCleanup(setattr, version, "_latest", None)
+
+    def _run_check(self, tag):
+        with unittest.mock.patch.object(version, "_fetch_latest", return_value=tag):
+            version.check_for_update()
 
     def test_reports_the_current_version_with_the_check_fields_null(self):
+        self.assertEqual(
+            api_version(),
+            {"current": __version__, "latest": None, "url": None},
+        )
+
+    def test_a_newer_release_surfaces_as_latest_and_its_url(self):
+        self._run_check("99.0.0")
+        self.assertEqual(
+            api_version(),
+            {
+                "current": __version__,
+                "latest": "99.0.0",
+                "url": (
+                    "https://github.com/dumontchristophe/ccdash/releases/tag/99.0.0"
+                ),
+            },
+        )
+
+    def test_a_release_no_newer_than_ours_leaves_the_fields_null(self):
+        self._run_check("0.0.1")
+        self.assertEqual(
+            api_version(),
+            {"current": __version__, "latest": None, "url": None},
+        )
+
+    def test_a_failed_check_leaves_the_fields_null(self):
+        self._run_check(None)
         self.assertEqual(
             api_version(),
             {"current": __version__, "latest": None, "url": None},

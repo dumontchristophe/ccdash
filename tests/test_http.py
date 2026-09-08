@@ -17,6 +17,7 @@ import tempfile
 import threading
 import time
 import unittest
+import unittest.mock
 import zlib
 from http.server import ThreadingHTTPServer
 
@@ -767,8 +768,11 @@ class TestMainOptions(BaseDBTest):
         argv, saved, verbose = sys.argv, server.ThreadingHTTPServer, store.verbose
         sys.argv = ["ccdash", "--db", main_db, "--port", "0", "-v"]
         server.ThreadingHTTPServer = Server
+        # No update thread, no outbound call: this test is about the options,
+        # and the check is exercised in isolation elsewhere.
         try:
-            server.main()
+            with unittest.mock.patch.object(server.version, "start_update_check"):
+                server.main()
             self.assertEqual(store.db_path, main_db)
             self.assertIs(store.verbose, True)
         finally:
