@@ -394,6 +394,10 @@
         font-size: 15px;
         color: var(--dim);
       }
+      .step .shot {
+        margin: 18px auto 0;
+        max-width: 560px;
+      }
       pre {
         margin: 16px 0 0;
         padding: 16px;
@@ -806,45 +810,21 @@ docker compose up -d</code></pre>
             <div class="step">
               <h3><span>02</span>Connect Claude Code</h3>
               <p>
-                In <code>~/.claude/settings.json</code>. The endpoint below points at
-                <code>127.0.0.1</code> — ccdash on the same machine.
+                On its first connection — an empty database — ccdash opens a setup modal that hands
+                you the <code>env</code> blocks to copy-paste into your <code>~/.claude/settings.json</code>
+                (and, per repository, into that repo's own <code>.claude/settings.json</code> to name
+                the project). Fill the fields, copy each block, restart your session. You can reopen it
+                any time from the <strong>Setup</strong> button in the sidebar; ccdash never writes your
+                settings itself.
               </p>
-              <pre><code>{
-  "env": {
-    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
-    "OTEL_METRICS_EXPORTER": "otlp",
-    "OTEL_METRICS_INCLUDE_ACCOUNT_UUID": "false",
-    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/json",
-    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://127.0.0.1:4318",
-    "OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE": "delta",
-    "OTEL_LOGS_EXPORTER": "otlp",
-    "OTEL_LOG_TOOL_DETAILS": "1",
-    "OTEL_LOG_USER_PROMPTS": "1",
-    "OTEL_LOG_ASSISTANT_RESPONSES": "1",
-    "OTEL_RESOURCE_ATTRIBUTES": "host=<mark>my-host</mark>"
-  }
-}</code></pre>
-              <p>
-                <code>host=my-host</code> here names the machine. Per-repository attribution
-                (project) goes in that repo's own <code>.claude/settings.json</code>, below.
-              </p>
-            </div>
-
-            <div class="step">
-              <h3><span>03</span>Name your projects</h3>
-              <p>
-                Optional, but it is what turns one flat stream into a per-repository breakdown. In
-                the observed repository's <code>.claude/settings.json</code>:
-              </p>
-              <pre><code>{
-  "env": {
-    "OTEL_RESOURCE_ATTRIBUTES": "host=<mark>my-host</mark>,project=<mark>my-project</mark>"
-  }
-}</code></pre>
-              <p>
-                The keys are exactly <code>host</code> and <code>project</code>; anything else falls
-                into <code>(undefined)</code>.
-              </p>
+              <img
+                class="shot"
+                src="screenshots/ccdash-setup-modal.webp"
+                alt="The ccdash setup modal, opened on first connection: host, project and endpoint fields, the OTEL logging toggles, and the ready-to-copy global and per-repository env blocks"
+                width="1431"
+                height="1089"
+                loading="lazy"
+              />
             </div>
           </div>
 
