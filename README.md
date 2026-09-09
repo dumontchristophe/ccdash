@@ -84,6 +84,11 @@ ccdash listens on `http://127.0.0.1:4318`.
 
 ### Claude Code Configuration
 
+On first launch, with an empty database, the setup modal opens automatically.
+You can reopen it at any time by clicking the **Setup** button in the sidebar.
+
+![ccdash - Setup modal](docs/screenshots/setup-modal.png)
+
 #### Telemetry surfaces
 
 Claude Code's telemetry is documented in Anthropic's
