@@ -228,8 +228,7 @@ async function openModal(kind, source, label) {
   return reload();
 }
 
-const openSetupFrom = (health) =>
-  openModal("setup", { server_host: health.server_host });
+const openSetupFrom = (health) => openModal("setup", { server_host: health.server_host });
 
 // days=0 so a store whose only data predates the current window still reads as
 // non-empty; one cache key serves both the auto-open and the manual reopen.

@@ -159,9 +159,7 @@ const analysisTabs = new Map([
             hide: "max-md",
             header: "Peak before compacting",
             cell: (row) =>
-              row.pre_compaction_peak
-                ? escapeHtml(formatNumber(row.pre_compaction_peak))
-                : "-",
+              row.pre_compaction_peak ? escapeHtml(formatNumber(row.pre_compaction_peak)) : "-",
             cls: () => "num",
           },
           {

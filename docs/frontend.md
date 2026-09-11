@@ -17,7 +17,7 @@ outside `#main` because `route()` rewrites `#main` wholesale on every render.
 | `state.mjs` | `sort`, `tab`, `pager`, `page` — plain objects, mutated by property, never reassigned |
 | `format.mjs` | `qs`, the formatters, `escapeHtml`, `MODEL_COLORS`, `TOKEN_TYPES`, and the module-level `displayZone` (`setDisplayZone`) the three `toLocale*` formatters render in — `app.mjs` sets it from `/api/filters` `tz`, "UTC" until then |
 | `charts.mjs` | the inline-SVG generators |
-| `components.mjs` | `renderTable`, `paginate`, `renderTabs`, `statCard`, `numCell`, `bytesCell`, the shared columns (`whenCol`, `originCols`) |
+| `components.mjs` | `renderTable`, `paginate`, `renderTabs`, `statCard`, `modalBox`, `numCell`, `bytesCell`, the shared columns (`whenCol`, `originCols`) and the `promptLink` jump |
 | `tables.mjs` | one column-definition set per table |
 | `modals/*.mjs` | the detail views, one file per modal |
 | `analysis.mjs` | `analysisTabs`, the six analysis views |
@@ -111,6 +111,27 @@ serves it, and a missing entry is a blank dashboard with one 404. A file holds
 one `MODAL_VIEWS` entry whole: `event.mjs` keeps its four branches together
 because they are one entry, not four. There is no barrel re-export; `app.mjs`
 and `tests/render.mjs` import file by file.
+
+**The frame comes from `modalBox({title, cap, body, attr})`** in
+`components.mjs`, not from the renderer: it emits the `div.box`, the `<h2>`, the
+`p.cap` caption line and the single `data-close` button — the one control
+`Escape` duplicates. A modal declares its title, caption and body and nothing
+else; no file under `modals/` writes a close button, which
+`test_every_modal_carries_exactly_one_close_button` holds.
+
+`modalBox` **escapes nothing**. `title`, `cap` and `body` arrive as
+already-built HTML, the same contract `renderTable`'s `cell` functions have, and
+escaping stays at the renderer value by value. A caption legitimately carries
+markup — the tag spans of the sub-agent detail, the `<b>` of the compactions
+modal, the `promptLink` of the event frames — so a frame that escaped one field
+of three would silently double-escape the other renderers. `attr` is spliced raw
+into the opening tag and defaults to empty; the setup modal is its only caller,
+for the `data-setup-form` its live form handler is keyed on.
+
+`promptLink(id, label)` sits in `components.mjs` beside the `data-goto` session
+link of `originCols`, not in `event.mjs`: both are an `slink` span carrying a
+data attribute that the delegated `handleRowClick` resolves, and this one stacks
+the prompt modal on whatever is already open. It escapes both its arguments.
 
 The `setup` modal is the one frame no row opens. It builds the two
 `settings.json` blocks a reader pastes to start Claude Code's telemetry, from a

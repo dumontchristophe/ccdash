@@ -39,6 +39,8 @@ jobs:
       - run: pip install ruff==0.14.11
       - run: ruff check ccdash tests
       - run: ruff format --check ccdash tests
+      # Fetched per run, so no manifest and no lockfile land in the repo.
+      - run: npx --yes prettier@3.9.6 --check ccdash/web/assets tests/render.mjs styles
 
   types:
     runs-on: ubuntu-latest

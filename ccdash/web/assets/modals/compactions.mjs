@@ -1,4 +1,5 @@
 import { escapeHtml, formatDateTime, formatNumber } from "../format.mjs";
+import { modalBox } from "../components.mjs";
 
 // The measured pair and the reported one describe different spans, so both are
 // shown: the reported one alone reads as a context that fell further than it did.
@@ -32,13 +33,14 @@ const compactionsModal = (compactions, context = []) => {
     .map((h) => `<span class=dim style=font-size:11.5px>${h}</span>`)
     .join("");
   const body = rows || `<div class=empty>No compaction on this session.</div>`;
-  return `<div class=box><h2>Compactions</h2>
-  <p class=cap>${escapeHtml(formatNumber(compactions.length))} on this session &middot; <b>measured</b> is the
+  return modalBox({
+    title: "Compactions",
+    cap: `${escapeHtml(formatNumber(compactions.length))} on this session &middot; <b>measured</b> is the
   prompt size of the requests either side, <b>reported</b> is what Claude Code
-  declares for the span it summarised. The two do not describe the same thing.
-  <button data-close style=float:right>close</button></p>
-  <div class="${cols}" style="padding-bottom:7px;border-bottom:1px solid var(--line)">${heading}</div>
-  ${body}</div>`;
+  declares for the span it summarised. The two do not describe the same thing.`,
+    body: `<div class="${cols}" style="padding-bottom:7px;border-bottom:1px solid var(--line)">${heading}</div>
+  ${body}`,
+  });
 };
 
 export { compactionsModal };
