@@ -139,6 +139,12 @@ const originCols = (isGlobal) =>
       ]
     : [];
 
+// Resolved by handleRowClick, like the `data-goto` session link above.
+const promptLink = (id, label) =>
+  id
+    ? `<span class=slink data-prompt="${escapeHtml(id)}">${escapeHtml(label || "prompt")}</span>`
+    : "";
+
 // A KPI tile. `label`, `value` and `hint` are payload-derived and escaped here;
 // `hintTail` is the markup slot, appended raw for a caller's own tag or span.
 const statCard = (label, value, hint, icon, cls = "", hintTail = "") => {
@@ -149,4 +155,24 @@ const statCard = (label, value, hint, icon, cls = "", hintTail = "") => {
   }</div></div>`;
 };
 
-export { renderTable, renderTabs, whenCol, numCell, bytesCell, originCols, statCard, paginate };
+// `title`, `cap` and `body` are HTML, not text (docs/frontend.md).
+const modalBox = ({ title, cap, body, attr = "" }) => {
+  const ownAttribute = attr.trim();
+  return `<div class=box${ownAttribute ? " " + ownAttribute : ""}><h2>${title}</h2>
+  <p class=cap>${cap}
+    <button data-close style=float:right>close</button></p>
+  ${body}</div>`;
+};
+
+export {
+  renderTable,
+  renderTabs,
+  whenCol,
+  numCell,
+  bytesCell,
+  originCols,
+  promptLink,
+  statCard,
+  modalBox,
+  paginate,
+};

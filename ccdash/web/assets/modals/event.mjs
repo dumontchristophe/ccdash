@@ -1,19 +1,8 @@
-import {
-  escapeHtml,
-  estTokens,
-  formatBytes,
-  formatDateTime,
-} from "../format.mjs";
-import { statCard } from "../components.mjs";
+import { escapeHtml, estTokens, formatBytes, formatDateTime } from "../format.mjs";
+import { modalBox, promptLink, statCard } from "../components.mjs";
 
 // The event overlay: the only place a stored payload is shown in full, with a
 // type-aware pane per tool and the raw inspector as the fallback.
-
-// The turn a record belongs to, opened on top of the current modal.
-const promptLink = (id, label) =>
-  id
-    ? `<span class=slink data-prompt="${escapeHtml(id)}">${escapeHtml(label || "prompt")}</span>`
-    : "";
 
 // `prompt_id` is the exception: it addresses a modal, so it renders as the link.
 const inspectorValue = (k, v) => {
@@ -42,10 +31,12 @@ const rawDetails = (e) => `<details style="margin-top:16px">
   <summary class=cap style=cursor:pointer>Raw attributes</summary>
   <div style="max-height:40vh;overflow:auto">${rawAttrs(e)}</div></details>`;
 
-const inspector = (e) => `<div class=box><h2>Raw attributes</h2>
-  <p class=cap>Event ${escapeHtml(e.id)} &middot; ${escapeHtml(e.name)}
-    <button data-close style=float:right>close</button></p>
-  ${rawAttrs(e)}</div>`;
+const inspector = (e) =>
+  modalBox({
+    title: "Raw attributes",
+    cap: `Event ${escapeHtml(e.id)} &middot; ${escapeHtml(e.name)}`,
+    body: rawAttrs(e),
+  });
 
 const bashDetail = (e) => {
   const p = e.params || {};
@@ -55,11 +46,12 @@ const bashDetail = (e) => {
   const decision = e.decision
     ? ` &middot; <span class="${decisionClass}">${escapeHtml(e.decision)}${source}</span>`
     : "";
-  return `<div class=box><h2>Bash call</h2>
-  <p class=cap>${escapeHtml(formatDateTime(e.ts))}${decision}${
-    e.prompt_id ? ` &middot; ${promptLink(e.prompt_id)}` : ""
-  }<button data-close style=float:right>close</button></p>
-  ${p.description ? `<h3 style="font-size:14px;margin:8px 0 10px">${escapeHtml(p.description)}</h3>` : ""}
+  return modalBox({
+    title: "Bash call",
+    cap: `${escapeHtml(formatDateTime(e.ts))}${decision}${
+      e.prompt_id ? ` &middot; ${promptLink(e.prompt_id)}` : ""
+    }`,
+    body: `${p.description ? `<h3 style="font-size:14px;margin:8px 0 10px">${escapeHtml(p.description)}</h3>` : ""}
   <div style="white-space:pre-wrap;word-break:break-word;font:12.5px var(--fn);
     background:var(--card2);padding:12px;border-radius:8px">${escapeHtml(
       p.full_command || e.bash_cmd || "",
@@ -74,20 +66,20 @@ const bashDetail = (e) => {
       "",
       e.success === false ? "hl" : "",
     )}
-  </div>${rawDetails(e)}</div>`;
+  </div>${rawDetails(e)}`,
+  });
 };
 
 // `e` is an /api/event payload, attrs and params already parsed.
 const errorDetail = (e) => {
   const p = e.params || {};
   const attempted = p.full_command || (Object.keys(p).length ? JSON.stringify(p, null, 1) : "");
-  return `<div class=box><h2>Failed ${escapeHtml(e.tool_name || "call")}</h2>
-  <p class=cap>${escapeHtml(formatDateTime(e.ts))} &middot; <span class=ko>${escapeHtml(
-    e.error_type || "error",
-  )}</span>${
-    e.prompt_id ? ` &middot; ${promptLink(e.prompt_id)}` : ""
-  }<button data-close style=float:right>close</button></p>
-  ${e.file_path ? `<p class=cap style="margin:6px 0 0">${escapeHtml(e.file_path)}</p>` : ""}
+  return modalBox({
+    title: `Failed ${escapeHtml(e.tool_name || "call")}`,
+    cap: `${escapeHtml(formatDateTime(e.ts))} &middot; <span class=ko>${escapeHtml(
+      e.error_type || "error",
+    )}</span>${e.prompt_id ? ` &middot; ${promptLink(e.prompt_id)}` : ""}`,
+    body: `${e.file_path ? `<p class=cap style="margin:6px 0 0">${escapeHtml(e.file_path)}</p>` : ""}
   ${e.attrs?.error ? `<div class="note err">${escapeHtml(e.attrs.error)}</div>` : ""}
   ${
     attempted
@@ -95,7 +87,8 @@ const errorDetail = (e) => {
   <div style="white-space:pre-wrap;word-break:break-word;font:12.5px var(--fn);
     background:var(--card2);padding:12px;border-radius:8px">${escapeHtml(attempted)}</div>`
       : ""
-  }${rawDetails(e)}</div>`;
+  }${rawDetails(e)}`,
+  });
 };
 
 // Claude Code clips a string over 512 characters to its first 128 and appends the
@@ -108,7 +101,9 @@ const editDetail = (e) => {
   const pane = (title, body) => {
     const clipped = CLIPPED.exec(body || "");
     return `<h3 style="font-size:13px;margin:14px 0 6px">${title}${
-      clipped ? ` <span class=cap>&middot; 128 of ${escapeHtml(clipped[1])} characters exported</span>` : ""
+      clipped
+        ? ` <span class=cap>&middot; 128 of ${escapeHtml(clipped[1])} characters exported</span>`
+        : ""
     }</h3>
   <div style="max-height:28vh;overflow:auto;white-space:pre-wrap;word-break:break-word;
     font:12.5px var(--fn);background:var(--card2);padding:12px;border-radius:8px">${escapeHtml(
@@ -118,12 +113,12 @@ const editDetail = (e) => {
   const panes = ti.content
     ? pane("Content", ti.content)
     : pane("Before", ti.old_string) + pane("After", ti.new_string);
-  return `<div class=box><h2>${escapeHtml(e.tool_name || "Edit")}</h2>
-  <p class=cap>${escapeHtml(formatDateTime(e.ts))}${e.prompt_id ? ` &middot; ${promptLink(e.prompt_id)}` : ""}
-    <button data-close style=float:right>close</button></p>
-  <h3 style="font-size:14px;margin:8px 0 2px">${escapeHtml(
-    (e.file_path || "?").split("/").pop(),
-  )}</h3>
+  return modalBox({
+    title: escapeHtml(e.tool_name || "Edit"),
+    cap: `${escapeHtml(formatDateTime(e.ts))}${e.prompt_id ? ` &middot; ${promptLink(e.prompt_id)}` : ""}`,
+    body: `<h3 style="font-size:14px;margin:8px 0 2px">${escapeHtml(
+      (e.file_path || "?").split("/").pop(),
+    )}</h3>
   <p class=cap style="margin:0">${escapeHtml(e.file_path || "")}</p>
   ${
     Object.keys(ti).length
@@ -132,7 +127,8 @@ const editDetail = (e) => {
     exporting it.</p>`
       : `<p class=cap style="margin-top:14px">Call arguments unavailable: Claude Code drops
     the whole attribute past 4096 characters.</p>`
-  }${rawDetails(e)}</div>`;
+  }${rawDetails(e)}`,
+  });
 };
 
 // Type-aware detail for an /api/event payload; falls back to the raw inspector.

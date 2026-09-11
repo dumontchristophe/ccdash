@@ -64,6 +64,9 @@ CALLEE = re.compile(r"([A-Za-z_$][\w$]*)\s*$")
 # formatter sitting in one of its arguments is already covered.
 ESCAPING_CALLERS = ("escapeHtml", "statCard")
 
+# A `modalBox` field reaches markup without carrying a tag of its own.
+MODAL_FIELD = re.compile(r"\b(?:title|cap|body)\s*:\s*$")
+
 
 def scan_literals(text):
     """The blanked source, and the spans of the interpolations that reach markup.
@@ -74,7 +77,9 @@ def scan_literals(text):
     the interpolations being checked live.
 
     The spans are the code inside each `${ }` of a template whose static text
-    holds a `<`. A template without one builds a URL, where
+    holds a `<`, or which is a `title:`/`cap:`/`body:` field of a `modalBox`
+    call -- that one reaches markup through the frame rather than carrying its
+    own tag. A template that is neither builds a URL, where
     `encodeURIComponent` is the rule, or a phrase handed to a renderer that
     escapes what it is given -- `statCard` escapes its hint, so a hint escaping
     itself would print `&amp;` where the payload had `&`.
@@ -90,8 +95,8 @@ def scan_literals(text):
             that point on, which would scan clean and prove nothing.
     """
     out = list(text)
-    # "'" '"' for a literal, "}" for a block, ["`", static text, spans] for a
-    # template and ["{", start] for one of its interpolations.
+    # "'" '"' for a literal, "}" for a block, ["`", static text, spans, reaches
+    # markup] for a template and ["{", start] for one of its interpolations.
     stack, markup = [], []
     i, n = 0, len(text)
     while i < n:
@@ -104,7 +109,7 @@ def scan_literals(text):
                 i += 2
             elif c == kind:
                 stack.pop()
-                if kind == "`" and "<" in top[1]:
+                if kind == "`" and ("<" in top[1] or top[3]):
                     markup += top[2]
                 out[i] = " "
                 i += 1
@@ -131,7 +136,9 @@ def scan_literals(text):
             i = end
             continue
         if c == "`":
-            stack.append(["`", "", []])
+            # Blanked source, so a `cap:` in a comment or a string cannot lie.
+            field = MODAL_FIELD.search("".join(out[max(0, i - 40) : i]))
+            stack.append(["`", "", [], bool(field)])
             out[i] = " "
         elif c in "'\"":
             stack.append(c)
@@ -310,6 +317,20 @@ class TestMarkupInterpolationsAreEscaped(unittest.TestCase):
         self.assertEqual(
             unescaped_reads(defect.replace("e.id", "escapeHtml(e.id)"))[0], []
         )
+
+    def test_a_modal_caption_is_scanned_though_it_carries_no_tag(self):
+        """A caption reaches markup as any template holding a tag does."""
+        defect = """const hookDetail = (d) => modalBox({
+          title: `Hook: ${d.name}`,
+          cap: `${d.event} &middot; ${escapeHtml(d.hooks)} per fire`,
+          body: renderTable("hkfires", [], d.fires),
+        });"""
+        self.assertEqual(unescaped_reads(defect)[0], [(2, "d.name"), (3, "d.event")])
+
+    def test_a_field_name_inside_a_comment_marks_nothing(self):
+        defect = """// cap: what the frame prints
+        const url = `?q=${d.name}`;"""
+        self.assertEqual(unescaped_reads(defect)[0], [])
 
 
 # The shape bytesCell carries. The two fields are not held equal: a copy reading

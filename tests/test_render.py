@@ -604,6 +604,14 @@ class TestRenderersRunOnARealPayload(BaseDBTest):
                 with self.subTest(renderer=name, marker=marker):
                     self.assertNotIn(marker, html)
 
+    def test_every_modal_carries_exactly_one_close_button(self):
+        """`modalBox` is the only place a close button is written."""
+        modals = {n: h for n, h in self.rendered.items() if n.startswith("modal:")}
+        self.assertTrue(modals, "the harness rendered no modal at all")
+        for name, html in modals.items():
+            with self.subTest(renderer=name):
+                self.assertEqual(html.count("data-close"), 1)
+
     def test_the_harness_draws_every_table_the_dashboard_has(self):
         """The 29 tables `docs/frontend.md` claims the harness covers, by name.
 
@@ -1449,6 +1457,76 @@ class TestSetupModal(unittest.TestCase):
         self.assertIsInstance(html, str, "the renderer threw: %r" % (html,))
         for marker in DEFECT_MARKERS:
             self.assertNotIn(marker, html)
+
+
+class TestTheSharedModalFrame(unittest.TestCase):
+    """The frame the seven modals share, escaping nothing it is handed."""
+
+    FIELDS = {"title": "Title", "cap": "Caption", "body": "<p>Body</p>"}
+
+    def _box(self, **overrides):
+        opts = {**self.FIELDS, **overrides}
+        return render([("component:modalBox", opts)])["component:modalBox"]
+
+    def test_an_absent_attr_leaves_the_opening_tag_bare(self):
+        self.assertIn("<div class=box>", self._box())
+
+    def test_an_attr_is_spliced_into_the_opening_tag(self):
+        """`app.mjs` keys the setup modal's live form handler on it."""
+        self.assertIn(
+            "<div class=box data-setup-form>", self._box(attr="data-setup-form")
+        )
+
+    def test_the_frame_separates_the_attr_it_is_handed(self):
+        """A caller omitting the space would emit `class=boxdata-setup-form`."""
+        for spelling in ("data-setup-form", " data-setup-form"):
+            with self.subTest(attr=spelling):
+                self.assertIn(
+                    "<div class=box data-setup-form>", self._box(attr=spelling)
+                )
+
+    def test_the_frame_writes_one_close_button(self):
+        self.assertEqual(self._box().count("data-close"), 1)
+
+    def test_a_caption_carrying_markup_reaches_the_dom_as_markup(self):
+        """A frame escaping them would double-escape every renderer."""
+        html = self._box(cap="<span class=tag>Agent</span>")
+        self.assertIn("<span class=tag>Agent</span>", html)
+        self.assertNotIn("&lt;span", html)
+
+    def test_the_title_and_body_are_emitted_as_given(self):
+        html = self._box(title="<em>T</em>", body="<p>B</p>")
+        self.assertIn("<em>T</em>", html)
+        self.assertIn("<p>B</p>", html)
+
+
+class TestThePromptLinkOpensTheTurn(unittest.TestCase):
+    """The cross-modal jump from any event frame to the turn behind it."""
+
+    EVENT = {"id": 7, "name": "tool_result", "ts": 1757000000, "prompt_id": "p-42"}
+
+    def _event(self, **overrides):
+        payload = {**self.EVENT, **overrides}
+        return render([("modal:event", payload)])["modal:event"]
+
+    def test_each_event_frame_links_the_turn_it_belongs_to(self):
+        frames = {
+            "inspector": {},
+            "bash": {"tool_name": "Bash", "bash_cmd": "ls"},
+            "edit": {"tool_name": "Edit", "tool_input": {"old_string": "a"}},
+            "error": {"tool_name": "Read", "success": False, "error_type": "ENOENT"},
+        }
+        for frame, overrides in frames.items():
+            with self.subTest(frame=frame):
+                self.assertIn('data-prompt="p-42"', self._event(**overrides))
+
+    def test_an_event_without_a_turn_emits_no_link(self):
+        self.assertNotIn("data-prompt", self._event(prompt_id=None))
+
+    def test_a_hostile_prompt_id_reaches_the_attribute_as_text(self):
+        html = self._event(prompt_id=XSS % "pid")
+        self.assertNotIn("<img", html)
+        self.assertIn("&lt;img src=x id=pid", html)
 
 
 if __name__ == "__main__":

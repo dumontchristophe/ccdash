@@ -16,6 +16,7 @@ import {
 } from "../ccdash/web/assets/format.mjs";
 import { pages, sessionSubtitle } from "../ccdash/web/assets/pages.mjs";
 import { analysisTabs, GLOBAL, SESSION } from "../ccdash/web/assets/analysis.mjs";
+import { modalBox } from "../ccdash/web/assets/components.mjs";
 import { hookDetail } from "../ccdash/web/assets/modals/hook.mjs";
 import { promptDetail } from "../ccdash/web/assets/modals/prompt.mjs";
 import { callsModal } from "../ccdash/web/assets/modals/calls.mjs";
@@ -80,6 +81,8 @@ const RENDERERS = new Map([
   ["modal:setup", (data) => setupModal(data)],
   // The pure builder behind the modal's two snippets: { global, project }.
   ["setup:settings", (opts) => buildSettings(opts)],
+  // No payload reaches the frame, so the fields come straight from the test.
+  ["component:modalBox", (opts) => modalBox(opts)],
   // A formatter rather than a renderer, run over a list of seconds so one job
   // covers every branch.
   ["format:duration", (seconds) => seconds.map(formatDuration)],

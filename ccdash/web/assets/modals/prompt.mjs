@@ -5,7 +5,7 @@ import {
   formatMoney,
   formatNumber,
 } from "../format.mjs";
-import { numCell, renderTable, statCard } from "../components.mjs";
+import { modalBox, numCell, renderTable, statCard } from "../components.mjs";
 import { subagentTable, toolTable } from "../tables.mjs";
 
 // Everything one prompt set off, from /api/prompt. The tools and sub-agents tables
@@ -30,17 +30,17 @@ const promptDetail = (d) => {
   ].join(" &middot; ");
   const section = (title, body) =>
     `<h3 style="font-size:13px;margin:20px 0 6px">${title}</h3>${body}`;
-  return `<div class=box><h2>Prompt</h2>
-  <p class=cap>${escapeHtml(formatDateTime(d.ts))} &middot; ${origin}
-    <button data-close style=float:right>close</button></p>
-  ${
-    d.prompt_text
-      ? `<div style="max-height:22vh;overflow:auto;white-space:pre-wrap;word-break:break-word;
+  return modalBox({
+    title: "Prompt",
+    cap: `${escapeHtml(formatDateTime(d.ts))} &middot; ${origin}`,
+    body: `${
+      d.prompt_text
+        ? `<div style="max-height:22vh;overflow:auto;white-space:pre-wrap;word-break:break-word;
     font:12.5px var(--fn);background:var(--card2);padding:12px;border-radius:8px">${escapeHtml(
       d.prompt_text,
     )}</div>`
-      : `<p class=cap>Prompt text not recorded (needs <code>OTEL_LOG_USER_PROMPTS=1</code>).</p>`
-  }
+        : `<p class=cap>Prompt text not recorded (needs <code>OTEL_LOG_USER_PROMPTS=1</code>).</p>`
+    }
   <div class=cards style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-top:16px">
     ${statCard("Est. cost", formatMoney(d.cost), d.calls + " model calls", "◎")}
     ${statCard("Duration", formatDuration(d.duration_s), "", "◴")}
@@ -91,7 +91,8 @@ const promptDetail = (d) => {
           ),
         )
       : ""
-  }</div>`;
+  }`,
+  });
 };
 
 export { promptDetail };

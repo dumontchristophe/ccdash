@@ -1,4 +1,5 @@
 import { escapeHtml } from "../format.mjs";
+import { modalBox } from "../components.mjs";
 
 // The global env block, in README.md's order; endpoint, the three flags and the
 // host come from the form, the rest are fixed.
@@ -28,10 +29,7 @@ const buildSettings = (opts) => {
     global: toJson({ env: Object.fromEntries(envEntries(opts)) }),
     project: toJson({
       env: {
-        OTEL_RESOURCE_ATTRIBUTES: resourceAttributes(
-          opts.host.trim(),
-          opts.project.trim(),
-        ),
+        OTEL_RESOURCE_ATTRIBUTES: resourceAttributes(opts.host.trim(), opts.project.trim()),
       },
     }),
   };
@@ -81,11 +79,13 @@ const setupModal = (d) => {
     prompts: true,
     responses: true,
   });
-  return `<div class=box data-setup-form><h2>Set up telemetry</h2>
-  <p class=cap>Claude Code exports nothing until you add these <code>env</code> blocks and
-    restart your session. Fill the fields; copy each block.
-    <button data-close style=float:right>close</button></p>
-  <div class="max-md:flex-col" style="display:flex;gap:12px;margin-top:8px">
+  // `data-setup-form` scopes the live input handler in app.mjs to this box.
+  return modalBox({
+    attr: "data-setup-form",
+    title: "Set up telemetry",
+    cap: `Claude Code exports nothing until you add these <code>env</code> blocks and
+    restart your session. Fill the fields; copy each block.`,
+    body: `<div class="max-md:flex-col" style="display:flex;gap:12px;margin-top:8px">
     <label style="flex:1;min-width:0"><span class=cap>host</span>
       <input data-setup-host value="${escapeHtml(host)}" style="${SETUP_INPUT}">
       <span class=cap style="display:block;margin-top:4px">Pre-filled from the ccdash
@@ -106,7 +106,8 @@ const setupModal = (d) => {
   ${setupBlock({ name: "global", title: "Global", path: "~/.claude/settings.json", json: settings.global })}
   ${setupBlock({ name: "project", title: "Per-repository", path: ".claude/settings.json", json: settings.project })}
   <p class=cap style="margin-top:10px">Copy-paste only: ccdash never writes your settings.</p>
-  </div>`;
+  `,
+  });
 };
 
 export { setupModal, buildSettings };
