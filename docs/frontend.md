@@ -133,6 +133,12 @@ link of `originCols`, not in `event.mjs`: both are an `slink` span carrying a
 data attribute that the delegated `handleRowClick` resolves, and this one stacks
 the prompt modal on whatever is already open. It escapes both its arguments.
 
+**A stored value shown verbatim carries `class=snippet`**, not a style
+attribute — the rule is in `@layer components` beside `code`. A site adds only
+what differs (`max-h-[28vh] overflow-auto`, `whitespace-pre` on the setup
+`<pre>`), and **those class names are written out**, never interpolated: the
+Tailwind scanner reads these files as text, like `hideClass`.
+
 The `setup` modal is the one frame no row opens. It builds the two
 `settings.json` blocks a reader pastes to start Claude Code's telemetry, from a
 live host/project/endpoint form (`buildSettings` in `modals/setup.mjs`, pure, no

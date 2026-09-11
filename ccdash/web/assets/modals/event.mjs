@@ -52,10 +52,7 @@ const bashDetail = (e) => {
       e.prompt_id ? ` &middot; ${promptLink(e.prompt_id)}` : ""
     }`,
     body: `${p.description ? `<h3 style="font-size:14px;margin:8px 0 10px">${escapeHtml(p.description)}</h3>` : ""}
-  <div style="white-space:pre-wrap;word-break:break-word;font:12.5px var(--fn);
-    background:var(--card2);padding:12px;border-radius:8px">${escapeHtml(
-      p.full_command || e.bash_cmd || "",
-    )}</div>
+  <div class=snippet>${escapeHtml(p.full_command || e.bash_cmd || "")}</div>
   <div class=cards style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-top:14px">
     ${statCard("Duration", e.duration_ms ? Math.round(e.duration_ms) + " ms" : "-", "", "◴")}
     ${statCard("Result size", formatBytes(e.result_bytes), "", "▤", "", `${estTokens(e.result_bytes)} tok`)}
@@ -84,8 +81,7 @@ const errorDetail = (e) => {
   ${
     attempted
       ? `<h3 style="font-size:13px;margin:14px 0 6px">Attempted</h3>
-  <div style="white-space:pre-wrap;word-break:break-word;font:12.5px var(--fn);
-    background:var(--card2);padding:12px;border-radius:8px">${escapeHtml(attempted)}</div>`
+  <div class=snippet>${escapeHtml(attempted)}</div>`
       : ""
   }${rawDetails(e)}`,
   });
@@ -105,10 +101,7 @@ const editDetail = (e) => {
         ? ` <span class=cap>&middot; 128 of ${escapeHtml(clipped[1])} characters exported</span>`
         : ""
     }</h3>
-  <div style="max-height:28vh;overflow:auto;white-space:pre-wrap;word-break:break-word;
-    font:12.5px var(--fn);background:var(--card2);padding:12px;border-radius:8px">${escapeHtml(
-      body || "(empty)",
-    )}</div>`;
+  <div class="snippet max-h-[28vh] overflow-auto">${escapeHtml(body || "(empty)")}</div>`;
   };
   const panes = ti.content
     ? pane("Content", ti.content)

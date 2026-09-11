@@ -9,6 +9,7 @@
     monospace;
     --spacing: 0.25rem;
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
     --default-transition-duration: 150ms;
     --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     --default-font-family: var(--font-sans);
@@ -205,6 +206,18 @@
   .table {
     display: table;
   }
+  .max-h-\[22vh\] {
+    max-height: 22vh;
+  }
+  .max-h-\[28vh\] {
+    max-height: 28vh;
+  }
+  .max-h-\[32vh\] {
+    max-height: 32vh;
+  }
+  .max-h-\[52vh\] {
+    max-height: 52vh;
+  }
   .max-w-full {
     max-width: 100%;
   }
@@ -213,9 +226,6 @@
   }
   .flex-1 {
     flex: 1;
-  }
-  .shrink {
-    flex-shrink: 1;
   }
   .shrink-0 {
     flex-shrink: 0;
@@ -238,11 +248,17 @@
   .gap-3 {
     gap: calc(var(--spacing) * 3);
   }
+  .overflow-auto {
+    overflow: auto;
+  }
   .rounded {
     border-radius: 0.25rem;
   }
   .bg-\(--overlay\) {
     background-color: var(--overlay);
+  }
+  .whitespace-pre {
+    white-space: pre;
   }
   .outline {
     outline-style: var(--tw-outline-style);
@@ -250,6 +266,10 @@
   }
   .filter {
     filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
+  }
+  .ease-in-out {
+    --tw-ease: var(--ease-in-out);
+    transition-timing-function: var(--ease-in-out);
   }
   .max-md\:fixed {
     @media (width < 768px) {
@@ -1163,6 +1183,15 @@
     padding: 2px 6px;
     border-radius: 5px;
   }
+  .snippet {
+    white-space: pre-wrap;
+    word-break: break-word;
+    font: 12.5px var(--fn);
+    background: var(--card2);
+    padding: 12px;
+    border-radius: 8px;
+    margin: 0;
+  }
   .empty {
     text-align: center;
     color: var(--dim);
@@ -1248,6 +1277,10 @@
   initial-value: 100%;
 }
 @property --tw-drop-shadow-size {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-ease {
   syntax: "*";
   inherits: false;
 }
@@ -1352,6 +1385,7 @@
       --tw-drop-shadow-color: initial;
       --tw-drop-shadow-alpha: 100%;
       --tw-drop-shadow-size: initial;
+      --tw-ease: initial;
       --tw-translate-x: 0;
       --tw-translate-y: 0;
       --tw-translate-z: 0;

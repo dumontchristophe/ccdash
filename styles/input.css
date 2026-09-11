@@ -1,6 +1,6 @@
 @import "tailwindcss" source(none);
-@source "../assets/**/*.mjs";
-@source "../index.html";
+@source "../ccdash/web/assets/**/*.mjs";
+@source "../ccdash/web/index.html";
 
 /* Only the two breakpoints this dashboard uses. `static` is required: without
    it the binary emits a theme token only where it sees it referenced. */
@@ -888,6 +888,17 @@
     background: var(--card2);
     padding: 2px 6px;
     border-radius: 5px;
+  }
+  /* `margin: 0` is inert on the <div> sites and zeroes the user-agent margin
+     on the setup <pre>. */
+  .snippet {
+    white-space: pre-wrap;
+    word-break: break-word;
+    font: 12.5px var(--fn);
+    background: var(--card2);
+    padding: 12px;
+    border-radius: 8px;
+    margin: 0;
   }
   .empty {
     text-align: center;
