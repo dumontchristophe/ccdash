@@ -6,6 +6,7 @@
 
 - The per-modal renderers moved from one `modals.mjs` into one file per modal under `ccdash/web/assets/modals/`. Internal only: every modal renders byte-identical HTML.
 - Every modal now renders its box, heading, caption and close button through one shared `modalBox` in `components.mjs`, and the prompt link moved there beside the session link. Internal only: nothing changes on screen.
+- CI checks the ES modules against `.prettierrc`, which had sat in the repo with nothing holding it; the asset tree is formatted to match. Internal only.
 
 ### Fixed
 

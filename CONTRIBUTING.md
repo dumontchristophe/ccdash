@@ -14,8 +14,8 @@ link on the chooser (see [SECURITY.md](SECURITY.md)).
 ## Rules
 
 - **No runtime dependency.** Python stdlib and ES modules only — no pip, npm,
-  manifest or lockfile. `ruff`, `mypy` and the `tailwindcss` binary are dev
-  tools, pinned in CI, never in the image.
+  manifest or lockfile. `ruff`, `mypy`, `prettier` and the `tailwindcss` binary
+  are dev tools, pinned in CI, never in the image.
 - **Nothing outbound.** No CDN, no font fetch, no update check, no telemetry of
   our own.
 
@@ -28,7 +28,12 @@ these:
 python3 -m unittest discover -s tests
 ruff check ccdash tests && ruff format --check ccdash tests
 mypy --python-version 3.12 --ignore-missing-imports ccdash
+npx --yes prettier@3.9.6 --check ccdash/web/assets tests/render.mjs styles
 ```
+
+`prettier` reads `.prettierrc`; `--write` instead of `--check` fixes what it
+reports. `npx --yes` fetches it for the run alone, so no manifest and no
+lockfile land in the repo — the rule `ruff` already follows.
 
 ## Rebuilding the stylesheet
 
