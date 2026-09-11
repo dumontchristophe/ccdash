@@ -42,7 +42,7 @@ TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 HARNESS = os.path.join(TESTS_DIR, "render.mjs")
 APP_MJS = os.path.join(os.path.dirname(TESTS_DIR), "ccdash", "web", "assets", "app.mjs")
 
-# The table id suffix of each ROW_MODALS entry, `["apierr", "ev", (id) => ...]`.
+# The table id suffix of each ROW_MODALS entry, `["apierr", "event", (id) => ...]`.
 # app.mjs wires the document at load and cannot be imported, so the list is read
 # as text and checked against what the renderers produce.
 ROW_MODAL_SUFFIX = re.compile(r'^\s*\["([a-z]+)", "[a-z]+", \(id\)', re.M)
