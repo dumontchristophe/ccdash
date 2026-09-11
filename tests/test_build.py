@@ -67,7 +67,10 @@ class TestBuild(unittest.TestCase):
         token it finds."""
         candidates = set()
         for path in [os.path.join(ROOT, "ccdash", "web", "index.html")] + sorted(
-            glob.glob(os.path.join(ROOT, "ccdash", "web", "assets", "*.mjs"))
+            glob.glob(
+                os.path.join(ROOT, "ccdash", "web", "assets", "**", "*.mjs"),
+                recursive=True,
+            )
         ):
             with open(path, encoding="utf-8") as handle:
                 for match in CLASS_ATTR.finditer(handle.read()):

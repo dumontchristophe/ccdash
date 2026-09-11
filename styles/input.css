@@ -1,5 +1,5 @@
 @import "tailwindcss" source(none);
-@source "../assets/*.mjs";
+@source "../assets/**/*.mjs";
 @source "../index.html";
 
 /* Only the two breakpoints this dashboard uses. `static` is required: without

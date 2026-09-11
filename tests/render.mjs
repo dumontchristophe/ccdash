@@ -16,14 +16,11 @@ import {
 } from "../ccdash/web/assets/format.mjs";
 import { pages, sessionSubtitle } from "../ccdash/web/assets/pages.mjs";
 import { analysisTabs, GLOBAL, SESSION } from "../ccdash/web/assets/analysis.mjs";
-import {
-  hookDetail,
-  promptDetail,
-  callsModal,
-  detailView,
-  setupModal,
-  buildSettings,
-} from "../ccdash/web/assets/modals.mjs";
+import { hookDetail } from "../ccdash/web/assets/modals/hook.mjs";
+import { promptDetail } from "../ccdash/web/assets/modals/prompt.mjs";
+import { callsModal } from "../ccdash/web/assets/modals/calls.mjs";
+import { detailView } from "../ccdash/web/assets/modals/event.mjs";
+import { setupModal, buildSettings } from "../ccdash/web/assets/modals/setup.mjs";
 import { tab } from "../ccdash/web/assets/state.mjs";
 
 // The one browser global the modals read: `callsModal` drops the origin columns

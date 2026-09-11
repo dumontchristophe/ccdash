@@ -1,15 +1,12 @@
 import { cache, page as pageState, pager, sort, tab } from "./state.mjs";
 import { escapeHtml, qs, setDisplayZone } from "./format.mjs";
-import {
-  detailView,
-  subagentDetail,
-  hookDetail,
-  promptDetail,
-  callsModal,
-  compactionsModal,
-  setupModal,
-  buildSettings,
-} from "./modals.mjs";
+import { detailView } from "./modals/event.mjs";
+import { subagentDetail } from "./modals/subagent.mjs";
+import { hookDetail } from "./modals/hook.mjs";
+import { callsModal } from "./modals/calls.mjs";
+import { promptDetail } from "./modals/prompt.mjs";
+import { compactionsModal } from "./modals/compactions.mjs";
+import { setupModal, buildSettings } from "./modals/setup.mjs";
 import { analysisTabs, GLOBAL } from "./analysis.mjs";
 import { pages, sessionSubtitle } from "./pages.mjs";
 
@@ -207,12 +204,12 @@ function renderPageBody(page, pageData) {
 }
 
 const MODAL_VIEWS = new Map([
-  ["ev", (m) => detailView(m.d)],
-  ["sub", (m) => subagentDetail(m.d)],
+  ["event", (m) => detailView(m.d)],
+  ["subagent", (m) => subagentDetail(m.d)],
   ["hook", (m) => hookDetail(m.d)],
   ["calls", (m) => callsModal(m.label, m.d)],
   ["prompt", (m) => promptDetail(m.d)],
-  ["comp", (m) => compactionsModal(m.d.compactions, m.d.context)],
+  ["compactions", (m) => compactionsModal(m.d.compactions, m.d.context)],
   ["setup", (m) => setupModal(m.d)],
 ]);
 
@@ -518,11 +515,11 @@ function handleControls(t) {
 // [table id suffix, kind of modal, endpoint for the row]. A suffix and not the
 // whole id: the scope prefixes it, "gsubc" globally against "ssubc" in a session.
 const ROW_MODALS = [
-  ["acalls", "ev", (id) => `/api/event?id=${encodeURIComponent(id)}`],
-  ["subc", "sub", (id) => `/api/subagent?id=${encodeURIComponent(id)}`],
-  ["bashd", "ev", (id) => `/api/event?id=${encodeURIComponent(id)}`],
-  ["errd", "ev", (id) => `/api/event?id=${encodeURIComponent(id)}`],
-  ["apierr", "ev", (id) => `/api/event?id=${encodeURIComponent(id)}`],
+  ["acalls", "event", (id) => `/api/event?id=${encodeURIComponent(id)}`],
+  ["subc", "subagent", (id) => `/api/subagent?id=${encodeURIComponent(id)}`],
+  ["bashd", "event", (id) => `/api/event?id=${encodeURIComponent(id)}`],
+  ["errd", "event", (id) => `/api/event?id=${encodeURIComponent(id)}`],
+  ["apierr", "event", (id) => `/api/event?id=${encodeURIComponent(id)}`],
   ["hk", "hook", (id) => `/api/hook?name=${encodeURIComponent(id)}`],
   ["prompts", "prompt", (id) => `/api/prompt?id=${encodeURIComponent(id)}`],
 ];
@@ -535,9 +532,9 @@ async function handleRowClick(t) {
   }
   const iv = t.closest("[data-ev]");
   if (iv) {
-    return openModal("ev", `/api/event?id=${encodeURIComponent(iv.dataset.ev)}`);
+    return openModal("event", `/api/event?id=${encodeURIComponent(iv.dataset.ev)}`);
   }
-  if (t.closest("[data-comp]")) return openModal("comp", pageState.data);
+  if (t.closest("[data-comp]")) return openModal("compactions", pageState.data);
   const tr = t.closest("tr[data-id]");
   if (!tr) return;
   const table = tr.closest("table").dataset.t;

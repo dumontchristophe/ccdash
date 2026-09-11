@@ -19,7 +19,7 @@ outside `#main` because `route()` rewrites `#main` wholesale on every render.
 | `charts.mjs` | the inline-SVG generators |
 | `components.mjs` | `renderTable`, `paginate`, `renderTabs`, `statCard`, `numCell`, `bytesCell`, the shared columns (`whenCol`, `originCols`) |
 | `tables.mjs` | one column-definition set per table |
-| `modals.mjs` | the detail views |
+| `modals/*.mjs` | the detail views, one file per modal |
 | `analysis.mjs` | `analysisTabs`, the six analysis views |
 | `pages.mjs` | `pages.*`, one renderer per top-level view, plus `sessionSubtitle` and the session-detail sections |
 | `app.mjs` | `ROUTES`, the router, the delegated listeners |
@@ -87,8 +87,8 @@ in the modules. `MODEL_COLORS` shows the cost: `short_model` capitalises past
 `pages.mjs` declares no column: a page renderer names a table renderer from
 `tables.mjs` and hands it rows — `ingestTable(ingest)`. The analysis tables take
 their id from the caller (drawn under both scopes, so the sorts must not share);
-the six diagnostics tables carry their own. `modals.mjs` and `analysis.mjs`
-still declare columns inline via `renderTable`.
+the six diagnostics tables carry their own. The modals and `analysis.mjs` still
+declare columns inline via `renderTable`.
 
 ## Modals
 
@@ -102,9 +102,19 @@ that touched a file, one of those calls, the prompt behind it — and the same
 kind can recur in a chain. `Escape` and the close button pop one frame; a
 backdrop click and any navigation clear the stack whole.
 
+**One file per modal, named after its `MODAL_VIEWS` key**, under
+`assets/modals/` — `event.mjs`, `subagent.mjs`, `hook.mjs`, `calls.mjs`,
+`prompt.mjs`, `compactions.mjs`, `setup.mjs`. No `modal-` prefix: the directory
+carries it. Adding a modal means adding a file, its key in `MODAL_VIEWS`, its
+import in `app.mjs` and its entry in `ASSET_FILES` — the allowlist is what
+serves it, and a missing entry is a blank dashboard with one 404. A file holds
+one `MODAL_VIEWS` entry whole: `event.mjs` keeps its four branches together
+because they are one entry, not four. There is no barrel re-export; `app.mjs`
+and `tests/render.mjs` import file by file.
+
 The `setup` modal is the one frame no row opens. It builds the two
 `settings.json` blocks a reader pastes to start Claude Code's telemetry, from a
-live host/project/endpoint form (`buildSettings` in `modals.mjs`, pure, no
+live host/project/endpoint form (`buildSettings` in `modals/setup.mjs`, pure, no
 POST). At boot `app.mjs` reads `/api/health?days=0`; on an empty store
 (`metric_points === 0 && prompts_total === 0`) it opens the modal unprompted —
 `days=0` so data predating the window still reads as non-empty. Afterwards the
@@ -184,8 +194,8 @@ names a column, so a column hidden below 768px is a legitimate choice.
 
 ```bash
 tailwindcss -i styles/input.css -o ccdash/web/assets/ccdash.css  # after any class= edit
-npx prettier --write ccdash/web/index.html ccdash/web/assets/* styles/*  # .prettierrc, width 100
-node --check ccdash/web/assets/<module>.mjs                             # syntax, per module
+npx prettier --write ccdash/web/index.html 'ccdash/web/assets/**' styles/*  # .prettierrc, width 100
+node --check ccdash/web/assets/<module>.mjs                                # syntax, per module
 ```
 
 `ccdash/web/assets/ccdash.css` is a build output, never edited by hand (see

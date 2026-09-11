@@ -9,8 +9,9 @@ APP = os.path.join(
 # The shell plus every module: the SVG builders live in the assets, and a scan
 # of index.html alone would be vacuously green.
 SOURCES = [os.path.join(APP, "index.html")] + sorted(
-    os.path.join(APP, "assets", n)
-    for n in os.listdir(os.path.join(APP, "assets"))
+    os.path.join(root, n)
+    for root, _, names in os.walk(os.path.join(APP, "assets"))
+    for n in names
     if n.endswith(".mjs")
 )
 

@@ -49,15 +49,26 @@ ASSET_FILES = [
     "charts.mjs",
     "components.mjs",
     "tables.mjs",
-    "modals.mjs",
+    "modals/event.mjs",
+    "modals/subagent.mjs",
+    "modals/hook.mjs",
+    "modals/calls.mjs",
+    "modals/prompt.mjs",
+    "modals/compactions.mjs",
+    "modals/setup.mjs",
     "analysis.mjs",
     "pages.mjs",
     "app.mjs",
 ]
 
-# Read at startup: no I/O per request, and a missing file fails the boot.
+# Read at startup: no I/O per request, and a missing file fails the boot. The
+# name is split on "/" rather than joined into the path: a subdirectory entry is
+# still a literal of the allowlist, never anything a request carried.
 ASSETS = {
-    "/assets/" + n: (_read("assets", n), ASSET_TYPES[os.path.splitext(n)[1]])
+    "/assets/" + n: (
+        _read("assets", *n.split("/")),
+        ASSET_TYPES[os.path.splitext(n)[1]],
+    )
     for n in ASSET_FILES
 }
 

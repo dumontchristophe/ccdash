@@ -5,6 +5,7 @@ Run: python3 -m unittest discover -s tests
 
 import gzip
 import os
+import posixpath
 import re
 import sys
 import unittest
@@ -36,7 +37,16 @@ class TestAssetAllowlist(unittest.TestCase):
     with a single 404 in the network tab. These tests are that missing signal."""
 
     def test_every_file_on_disk_is_listed(self):
-        on_disk = sorted(n for n in os.listdir(ASSET_DIR) if not n.startswith("."))
+        # Walked, not listed: the per-modal renderers live one level down, and a
+        # flat listing would stop seeing them the moment one is added.
+        on_disk = sorted(
+            posixpath.join(
+                os.path.relpath(root, ASSET_DIR).replace(os.sep, "/"), name
+            ).removeprefix("./")
+            for root, _, names in os.walk(ASSET_DIR)
+            for name in names
+            if not name.startswith(".")
+        )
         self.assertEqual(on_disk, sorted(server.ASSET_FILES))
 
     def test_every_url_referenced_by_the_shell_is_served(self):
@@ -47,11 +57,16 @@ class TestAssetAllowlist(unittest.TestCase):
     def test_every_import_resolves_to_a_served_module(self):
         # A module importing one that is not in the allowlist loads nothing at all:
         # the browser reports a single 404 and the dashboard stays blank.
+        # `../` as well as `./`: a module under modals/ reaches its siblings one
+        # level up, and a scan blind to that would pass on nothing at all.
         imports = set()
         for name in server.ASSET_FILES:
             if name.endswith(".mjs"):
                 body = server.ASSETS["/assets/" + name][0]
-                imports |= set(re.findall(r'from\s+"\./([^"]+)"', body))
+                imports |= {
+                    posixpath.normpath(posixpath.join(posixpath.dirname(name), spec))
+                    for spec in re.findall(r'from\s+"(\.\.?/[^"]+)"', body)
+                }
         self.assertTrue(imports, "no module imports another one")
         self.assertEqual(imports - set(server.ASSET_FILES), set())
 
