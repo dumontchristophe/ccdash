@@ -1,6 +1,6 @@
 @import "tailwindcss" source(none);
-@source "../assets/**/*.mjs";
-@source "../index.html";
+@source "../ccdash/web/assets/**/*.mjs";
+@source "../ccdash/web/index.html";
 
 /* Only the two breakpoints this dashboard uses. `static` is required: without
    it the binary emits a theme token only where it sees it referenced. */
