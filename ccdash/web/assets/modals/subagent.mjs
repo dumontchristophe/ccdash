@@ -20,10 +20,7 @@ const subagentDetail = (d) =>
   ${d.description ? `<h3 style="font-size:14px;margin:16px 0 6px">${escapeHtml(d.description)}</h3>` : ""}
   ${
     d.instructions
-      ? `<div style="max-height:52vh;overflow:auto;white-space:pre-wrap;word-break:break-word;
-    font:12.5px var(--fn);background:var(--card2);padding:12px;border-radius:8px">${escapeHtml(
-      d.instructions,
-    )}</div>`
+      ? `<div class="snippet max-h-[52vh] overflow-auto">${escapeHtml(d.instructions)}</div>`
       : `<p class=cap>Instructions unavailable (the spawning call was not captured).
     The internal tools it ran are not attributable in the telemetry.</p>`
   }`,

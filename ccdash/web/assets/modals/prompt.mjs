@@ -35,10 +35,7 @@ const promptDetail = (d) => {
     cap: `${escapeHtml(formatDateTime(d.ts))} &middot; ${origin}`,
     body: `${
       d.prompt_text
-        ? `<div style="max-height:22vh;overflow:auto;white-space:pre-wrap;word-break:break-word;
-    font:12.5px var(--fn);background:var(--card2);padding:12px;border-radius:8px">${escapeHtml(
-      d.prompt_text,
-    )}</div>`
+        ? `<div class="snippet max-h-[22vh] overflow-auto">${escapeHtml(d.prompt_text)}</div>`
         : `<p class=cap>Prompt text not recorded (needs <code>OTEL_LOG_USER_PROMPTS=1</code>).</p>`
     }
   <div class=cards style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-top:16px">

@@ -889,6 +889,17 @@
     padding: 2px 6px;
     border-radius: 5px;
   }
+  /* `margin: 0` is inert on the <div> sites and zeroes the user-agent margin
+     on the setup <pre>. */
+  .snippet {
+    white-space: pre-wrap;
+    word-break: break-word;
+    font: 12.5px var(--fn);
+    background: var(--card2);
+    padding: 12px;
+    border-radius: 8px;
+    margin: 0;
+  }
   .empty {
     text-align: center;
     color: var(--dim);

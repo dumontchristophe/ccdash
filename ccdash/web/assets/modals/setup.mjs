@@ -38,10 +38,6 @@ const buildSettings = (opts) => {
 const SETUP_INPUT =
   "display:block;width:100%;margin-top:4px;font:13px var(--fu);background:var(--card);" +
   "color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:7px 11px";
-const SETUP_SNIPPET =
-  "max-height:32vh;overflow:auto;white-space:pre;font:12.5px var(--fn);" +
-  "background:var(--card2);padding:12px;border-radius:8px;margin:0";
-
 const SETUP_FLAGS = [
   ["tools", "OTEL_LOG_TOOL_DETAILS", "Bash commands, sub-agent types, MCP names"],
   ["prompts", "OTEL_LOG_USER_PROMPTS", "session titles and prompt text, in clear"],
@@ -61,7 +57,9 @@ const setupBlock = ({ name, title, path, json }) =>
       <h3 style="font-size:13px;margin:0">${title} <code>${path}</code></h3>
       <button data-setup-copy>Copy</button>
     </div>
-    <pre data-setup-snippet="${name}" style="${SETUP_SNIPPET}">${escapeHtml(json)}</pre>
+    <pre data-setup-snippet="${name}" class="snippet whitespace-pre max-h-[32vh] overflow-auto">${escapeHtml(
+      json,
+    )}</pre>
   </div>`;
 
 // Read-only: the reader pastes the snippets, ccdash never writes them. The live
