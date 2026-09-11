@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- The per-modal renderers moved from one `modals.mjs` into one file per modal under `ccdash/web/assets/modals/`. Internal only: every modal renders byte-identical HTML.
+
 ### Fixed
 
 - `compose.yml` now passes `CCDASH_TZ` and `CCDASH_ENABLE_UPDATE_CHECK` from `.env` into the container; setting them in `.env` had no effect on a compose deployment.
