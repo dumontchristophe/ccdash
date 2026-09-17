@@ -38,7 +38,7 @@ const promptDetail = (d) => {
         ? `<div class="snippet max-h-[22vh] overflow-auto">${escapeHtml(d.prompt_text)}</div>`
         : `<p class=cap>Prompt text not recorded (needs <code>OTEL_LOG_USER_PROMPTS=1</code>).</p>`
     }
-  <div class=cards style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-top:16px">
+  <div class=cards>
     ${statCard("Est. cost", formatMoney(d.cost), d.calls + " model calls", "◎")}
     ${statCard("Duration", formatDuration(d.duration_s), "", "◴")}
     ${statCard("Hook overhead", d.hook_ms ? Math.round(d.hook_ms) + " ms" : "-", "before the tools ran", "⚙")}

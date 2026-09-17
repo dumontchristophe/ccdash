@@ -1,9 +1,7 @@
 import { escapeHtml, formatDuration, formatNumber } from "../format.mjs";
 import { modalBox, statCard } from "../components.mjs";
 
-// `d` is /api/subagent. Every card grid of the modals reads 140px: `auto-fit`
-// collapses to one column as soon as two no longer fit, and under that a label
-// gets ~59px of a 281px modal box once `.ico` has taken its 34px.
+// `d` is /api/subagent.
 const subagentDetail = (d) =>
   modalBox({
     title: "Sub-agent",
@@ -12,7 +10,7 @@ const subagentDetail = (d) =>
     ${d.background ? `<span class=tag>background</span>` : ""}
     ${d.isolation ? `<span class=tag>${escapeHtml(d.isolation)}</span>` : ""}
     ${(d.efforts || []).map((e) => `<span class=tag>${escapeHtml(e)}</span>`).join("")}`,
-    body: `<div class=cards style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+    body: `<div class=cards>
     ${statCard("Tokens", formatNumber(d.tokens), "", "∿")}
     ${statCard("Tool uses", formatNumber(d.tools), "", "⚒")}
     ${statCard("Duration", d.duration_ms ? formatDuration(d.duration_ms / 1000) : "-", "", "◴")}
