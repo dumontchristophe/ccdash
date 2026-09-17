@@ -359,6 +359,29 @@ class TestOneWayToRenderABytesCell(unittest.TestCase):
         )
 
 
+# A `style` attribute, quoted or not, that sets a grid's columns.
+INLINE_GRID_COLUMNS = re.compile(r"""style=["']?[^"'>]*grid-template-columns""")
+
+
+class TestModalCardGridIsARule(unittest.TestCase):
+    """The narrow column of a modal card grid lives in `.modal .cards`. Written
+    inline, it is one copy per modal, and changing the width means finding them
+    all by grep."""
+
+    def test_no_module_sets_grid_columns_inline(self):
+        offenders = []
+        for path in RENDERERS:
+            with open(path, encoding="utf-8") as fh:
+                text = fh.read()
+            offenders += [
+                "%s:%d" % (os.path.basename(path), text.count("\n", 0, m.start()) + 1)
+                for m in INLINE_GRID_COLUMNS.finditer(text)
+            ]
+        self.assertEqual(
+            offenders, [], "move these into styles/input.css:\n" + "\n".join(offenders)
+        )
+
+
 APP_MJS = os.path.join(APP, "assets", "app.mjs")
 
 # `const ROUTES = new Map([ [ "key", { ... } ], ... ]);` -- the key of each entry

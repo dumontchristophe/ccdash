@@ -92,6 +92,17 @@ class TestBuild(unittest.TestCase):
             "utilities used in the markup are absent from the build -- rebuild the stylesheet",
         )
 
+    def test_the_modal_card_grid_rule_is_built(self):
+        """The modals set no column of their own and rely on `.modal .cards`
+        alone. A commit that edits `styles/input.css` without running the binary
+        would ship modals whose cards take the page-width column."""
+        rule = re.search(
+            r"\.modal \.cards\s*\{([^}]*)\}",
+            _layer_body(self.built, "components"),
+        )
+        self.assertIsNotNone(rule, "`.modal .cards` is absent from the build")
+        self.assertIn("minmax(140px", rule.group(1))
+
     def test_the_served_stylesheet_is_a_build_output(self):
         body = server.ASSETS["/assets/ccdash.css"][0]
         self.assertTrue(

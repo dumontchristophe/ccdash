@@ -1215,6 +1215,13 @@
     overflow: auto;
     box-shadow: var(--shadow-lg);
   }
+  .modal .cards {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    margin-top: 16px;
+  }
+  .modal h2 + .cap + .cards {
+    margin-top: 0;
+  }
   html {
     scrollbar-gutter: stable;
   }

@@ -53,7 +53,7 @@ const bashDetail = (e) => {
     }`,
     body: `${p.description ? `<h3 style="font-size:14px;margin:8px 0 10px">${escapeHtml(p.description)}</h3>` : ""}
   <div class=snippet>${escapeHtml(p.full_command || e.bash_cmd || "")}</div>
-  <div class=cards style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-top:14px">
+  <div class=cards>
     ${statCard("Duration", e.duration_ms ? Math.round(e.duration_ms) + " ms" : "-", "", "◴")}
     ${statCard("Result size", formatBytes(e.result_bytes), "", "▤", "", `${estTokens(e.result_bytes)} tok`)}
     ${statCard(

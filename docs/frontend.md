@@ -139,6 +139,9 @@ what differs (`max-h-[28vh] overflow-auto`, `whitespace-pre` on the setup
 `<pre>`), and **those class names are written out**, never interpolated: the
 Tailwind scanner reads these files as text, like `hideClass`.
 
+A card grid inside a modal is a bare `class=cards`: `.modal .cards` narrows its
+column to 140px and spaces it from the content above.
+
 The `setup` modal is the one frame no row opens. It builds the two
 `settings.json` blocks a reader pastes to start Claude Code's telemetry, from a
 live host/project/endpoint form (`buildSettings` in `modals/setup.mjs`, pure, no

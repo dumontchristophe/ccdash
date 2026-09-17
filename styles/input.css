@@ -923,6 +923,18 @@
     overflow: auto;
     box-shadow: var(--shadow-lg);
   }
+  /* Every card grid of the modals reads 140px: `auto-fit` collapses to one
+   column as soon as two no longer fit, and under that a label gets ~59px of a
+   281px modal box once `.ico` has taken its 34px. A grid that follows body
+   content takes the gap below a snippet; one that opens the body sits under the
+   header caption, which already spaces it. */
+  .modal .cards {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    margin-top: 16px;
+  }
+  .modal h2 + .cap + .cards {
+    margin-top: 0;
+  }
   /* An open modal freezes the page under it: the backdrop covers the viewport,
    so a scroll aimed there moves something the reader cannot see and loses the
    place they came from. Selected on the state of the DOM rather than on a class
