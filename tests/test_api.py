@@ -18,7 +18,7 @@ from ccdash import __version__, api, ingest
 from ccdash.core import store
 from ccdash.core.aggregates import WEIGHTS
 from ccdash.core.request import Filters, NotFoundError, Scope
-from ccdash.pages import sessions, version
+from ccdash.pages import events, sessions, version
 from ccdash.pages.analysis import (
     ANALYSIS_CAPS,
     api_analysis,
@@ -27,10 +27,10 @@ from ccdash.pages.analysis import (
 )
 from ccdash.pages.costs import api_costs, api_projects
 from ccdash.pages.details import api_event, api_prompt, api_subagent
+from ccdash.pages.events import RESPONSE_CLIP
 from ccdash.pages.health import HOOK_MAX_FIRES, api_health, api_hook
 from ccdash.pages.overview import api_filters, api_overview
 from ccdash.pages.sessions import (
-    RESPONSE_CLIP,
     api_context,
     api_session,
     api_sessions,
@@ -3551,6 +3551,103 @@ class TestApiVersion(unittest.TestCase):
             api_version(),
             {"current": __version__, "latest": None, "url": None},
         )
+
+
+class TestApiEvents(BaseDBTest):
+    """/api/events: raw event rows across the window, paginated, narrowed by
+    event name, label, skill and session on top of the standard filters."""
+
+    SID1 = "session-events-1"
+    SID2 = "session-events-2"
+
+    def setUp(self):
+        super().setUp()
+        seed_log_event(
+            "tool_result",
+            self.SID1,
+            [_attr("tool_name", _str("Bash")), _attr("success", _str("true"))],
+            ts=1000,
+        )
+        seed_log_event(
+            "skill_activated",
+            self.SID1,
+            [_attr("skill.name", _str("triage"))],
+            ts=1001,
+        )
+        seed_log_event(
+            "hook_execution_start",
+            self.SID2,
+            [_attr("hook_name", _str("PreToolUse:Bash"))],
+            host="otherhost",
+            ts=1002,
+        )
+        seed_log_event("user_prompt", self.SID2, [_attr("prompt", _str("go"))], ts=1003)
+
+    def names(self, params, filters=NO_FILTER):
+        return [row["name"] for row in events.api_events(params, filters)["data"]]
+
+    def test_no_event_filter_answers_the_window_newest_first(self):
+        self.assertEqual(
+            self.names({}),
+            [
+                "user_prompt",
+                "hook_execution_start",
+                "skill_activated",
+                "tool_result",
+            ],
+        )
+
+    def test_the_envelope_counts_the_filtered_rows(self):
+        got = events.api_events({"per_page": ["1"], "page": ["2"]}, NO_FILTER)
+        self.assertEqual(
+            {k: v for k, v in got.items() if k != "data"},
+            {"total": 4, "per_page": 1, "current_page": 2, "last_page": 4},
+        )
+        self.assertEqual([row["name"] for row in got["data"]], ["hook_execution_start"])
+
+    def test_repeated_names_match_any_of_them(self):
+        self.assertEqual(
+            self.names({"name": ["tool_result", "user_prompt"]}),
+            ["user_prompt", "tool_result"],
+        )
+
+    def test_the_hook_start_row_is_not_excluded(self):
+        self.assertEqual(
+            self.names({"name": ["hook_execution_start"]}), ["hook_execution_start"]
+        )
+
+    def test_each_event_filter_narrows(self):
+        cases = [
+            ({"label": ["Bash"]}, ["tool_result"]),
+            ({"skill": ["triage"]}, ["skill_activated"]),
+            ({"session": [self.SID2]}, ["user_prompt", "hook_execution_start"]),
+        ]
+        for params, expected in cases:
+            with self.subTest(params=params):
+                self.assertEqual(self.names(params), expected)
+
+    def test_filters_combine_as_and(self):
+        params = {"name": ["tool_result", "user_prompt"], "session": [self.SID1]}
+        self.assertEqual(self.names(params), ["tool_result"])
+
+    def test_the_standard_filters_narrow(self):
+        filters = replace(NO_FILTER, host="otherhost")
+        self.assertEqual(self.names({}, filters), ["hook_execution_start"])
+        self.assertEqual(self.names({}, replace(NO_FILTER, project="nope")), [])
+
+    def test_a_row_is_a_timeline_row_plus_its_session_and_project(self):
+        row = events.api_events({"session": [self.SID1]}, NO_FILTER)["data"][0]
+        timeline_row = api_session(self.SID1)["events"][0]
+        self.assertEqual(
+            row, {**timeline_row, "session_id": self.SID1, "project": "testproj"}
+        )
+
+    def test_success_is_a_bool(self):
+        row = events.api_events({"label": ["Bash"]}, NO_FILTER)["data"][0]
+        self.assertIs(row["success"], True)
+
+    def test_no_truncated_key(self):
+        self.assertNotIn("truncated", events.api_events({}, NO_FILTER))
 
 
 if __name__ == "__main__":

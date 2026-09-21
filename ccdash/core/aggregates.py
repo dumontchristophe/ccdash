@@ -5,6 +5,7 @@ Holds no endpoint. Everything here is read by more than one of them.
 """
 
 import json
+import math
 import sqlite3
 from collections.abc import Callable, Mapping
 from typing import Any
@@ -86,6 +87,7 @@ def scoped(
     group: str = "",
     order: str = "",
     limit: int | None = None,
+    offset: int | None = None,
     args: tuple[Any, ...] = (),
 ) -> tuple[str, tuple[Any, ...]]:
     """A windowed `SELECT`, assembled and ready for a `store.query*`.
@@ -101,11 +103,18 @@ def scoped(
         group: A `GROUP BY` body, omitted when empty.
         order: An `ORDER BY` body, omitted when empty.
         limit: A `LIMIT`, formatted in since SQLite takes no LIMIT parameter.
+        offset: An `OFFSET`, formatted in the same way; needs a `limit`.
         args: The population's own placeholder values, before the window's.
 
     Returns:
         The rendered SQL and the full argument tuple, in placeholder order.
+
+    Raises:
+        ValueError: If `offset` comes without a `limit`, which SQLite does not
+            parse.
     """
+    if offset is not None and limit is None:
+        raise ValueError("an OFFSET needs a LIMIT")
     sql = "SELECT " + select + " FROM " + population
     if group:
         sql += " GROUP BY " + group
@@ -113,7 +122,63 @@ def scoped(
         sql += " ORDER BY " + order
     if limit is not None:
         sql += " LIMIT %d" % limit
+    if offset is not None:
+        sql += " OFFSET %d" % offset
+    # Last: a rendered window carries a literal `%s` no formatting survives.
     return windowed(sql, scope, args)
+
+
+def paginated(
+    select: str,
+    population: str,
+    scope: request.Scope,
+    page: request.Page,
+    *,
+    order: str = "",
+    args: tuple[Any, ...] = (),
+) -> dict[str, Any]:
+    """One page of `population`, as the API's pagination envelope.
+
+    Runs `COUNT(*)` over the same population and scope, then the page itself.
+    `population` carries the SCOPE_MARK, so an unbounded page is impossible. A
+    page past the last answers an empty `data` with the rest populated.
+
+    Args:
+        select: The projection list of a row.
+        population: The `FROM` clause and predicate, with `SCOPE_MARK` markers.
+        scope: The window and narrowing.
+        page: The slice asked for.
+        order: An `ORDER BY` body; it must be total for pages to be stable.
+        args: The population's own placeholder values, before the window's.
+
+    Returns:
+        `data`, `total`, `per_page`, `current_page` and `last_page`, the last
+        being 1 even when `total` is 0.
+    """
+    total = store.query_value(*scoped("COUNT(*)", population, scope, args=args))
+    # Past the end is known from the count, so the page query is skipped: an
+    # offset beyond SQLite's 64-bit integer would not even bind.
+    if page.offset >= total:
+        rows: list[dict[str, Any]] = []
+    else:
+        rows = store.query_dicts(
+            *scoped(
+                select,
+                population,
+                scope,
+                order=order,
+                limit=page.per_page,
+                offset=page.offset,
+                args=args,
+            )
+        )
+    return {
+        "data": rows,
+        "total": total,
+        "per_page": page.per_page,
+        "current_page": page.page,
+        "last_page": max(1, math.ceil(total / page.per_page)),
+    }
 
 
 def short_model(model: str | None) -> str | None:

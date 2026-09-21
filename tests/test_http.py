@@ -119,7 +119,7 @@ class HttpCase(BaseDBTest):
 
 
 class TestGetRoutes(HttpCase):
-    """The 16 GET routes answer, and the HTML is served. The list is every key of
+    """The 17 GET routes answer, and the HTML is served. The list is every key of
     API_ROUTES: a route missing from it is a route no test ever reaches through
     the handler, and a typo in its lambda passes the whole suite green."""
 
@@ -137,6 +137,7 @@ class TestGetRoutes(HttpCase):
         "/api/costs": ("", 200),
         "/api/context": ("", 200),
         "/api/calls": ("?label=Bash", 200),
+        "/api/events": ("", 200),
         "/api/filters": ("", 200),
         "/api/hook": ("?name=x", 200),
         "/api/prompt": ("?id=1", 200),
@@ -222,6 +223,15 @@ class TestGetRoutes(HttpCase):
         for path in ("/api/event", "/api/subagent"):
             with self.subTest(route=path):
                 status, _, body = self.get(path + "?id=abc")
+                self.assertEqual(status, 400)
+                self.assertEqual(json.loads(body), {"error": "bad request"})
+
+    def test_a_non_numeric_page_gives_400(self):
+        # A tolerant parse would answer an arbitrary page, which does not read
+        # as "you sent a typo".
+        for query in ("?page=two", "?per_page=many"):
+            with self.subTest(query=query):
+                status, _, body = self.get("/api/events" + query)
                 self.assertEqual(status, 400)
                 self.assertEqual(json.loads(body), {"error": "bad request"})
 
@@ -442,6 +452,17 @@ class TestGetRouteArguments(HttpCase):
         self.assertEqual(
             len(self.get_json("/api/calls?label=Bash&session=sess-two")), 1
         )
+
+    def test_events_read_their_filters_and_page_off_the_query_string(self):
+        got = self.get_json(
+            "/api/events?name=tool_result&name=subagent_completed"
+            "&session=sess-one&per_page=2&page=1"
+        )
+        self.assertEqual(
+            {k: v for k, v in got.items() if k != "data"},
+            {"total": 3, "per_page": 2, "current_page": 1, "last_page": 2},
+        )
+        self.assertEqual({r["session_id"] for r in got["data"]}, {"sess-one"})
 
     def test_detail_endpoints_return_the_requested_row(self):
         # The two inspectors: a badly forwarded id would show the detail of another

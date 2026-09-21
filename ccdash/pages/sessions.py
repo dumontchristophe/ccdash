@@ -9,7 +9,7 @@ from collections.abc import Callable, Sequence
 from typing import Any
 
 from ..core import aggregates, request, store
-from . import analysis
+from . import analysis, events
 
 RENAME_RE = re.compile(r"^\s*/rename\s+(.+)$", re.I)
 
@@ -178,10 +178,6 @@ def api_sessions(filters: request.Filters) -> dict[str, Any]:
 # ordinary session reaches it, and whatever it cuts is named in `truncated`.
 SESSION_MAX_ROWS = 10000
 
-# How much of an assistant response a timeline row carries. `response_length`
-# rides along so a row can tell a text that was cut from one that ends there.
-RESPONSE_CLIP = 300
-
 
 def _session_span(session_id: str) -> tuple[int, int] | None:
     """First and last timestamp recorded under a session id, None when nothing
@@ -296,10 +292,9 @@ def _first_seen_values(session_id: str, column: str) -> list[str]:
 def _timeline_events(session_id: str, truncated: list[str]) -> list[dict[str, Any]]:
     """The session's records, newest first, capped at SESSION_MAX_ROWS.
 
-    `response` is clipped rather than shipped whole, which would be megabytes per
-    row. `hook_execution_start` is dropped -- the matching
-    `hook_execution_complete` carries the same attributes plus the result -- in
-    SQL, so the cap applies to what is shown.
+    Each row is an `events.EVENT_COLUMNS` row. `hook_execution_start` is
+    dropped -- the matching `hook_execution_complete` carries the same
+    attributes plus the result -- in SQL, so the cap applies to what is shown.
 
     Args:
         session_id: The session the timeline covers.
@@ -310,20 +305,9 @@ def _timeline_events(session_id: str, truncated: list[str]) -> list[dict[str, An
         "events",
         SESSION_MAX_ROWS,
         lambda limit: store.query_dicts(
-            "SELECT id,ts,name,label,tool_name,success,duration_ms,result_bytes,"
-            "error_type,bash_cmd,file_path,trigger_kind,pre_tokens,post_tokens,decision,"
-            "dec_source,skill_name,prompt_text,agent_type,agent_desc,prompt_id,model,"
-            "COALESCE(hook_name,hook_event) hook_name,"
-            "substr(response,1,%d) response,response_length,from_mode,to_mode,"
-            # The aliases stay clear of the real columns: `mcp_name` because
-            # `mcp_server` is one, `error_msg` because `api_error` is an event
-            # name.
-            "mcp_status,server_name mcp_name,transport_type mcp_transport,"
-            "hook_duration_ms hook_ms,error_name,status_code,error_text error_msg,"
-            "COALESCE(total_attempts,attempt) attempts,retry_duration_ms retry_ms,"
-            "mention_type "
+            "SELECT " + events.EVENT_COLUMNS + " "
             "FROM events WHERE name <> 'hook_execution_start' AND session_id=? "
-            "ORDER BY ts DESC, id DESC LIMIT %d" % (RESPONSE_CLIP, limit),
+            "ORDER BY ts DESC, id DESC LIMIT %d" % limit,
             (session_id,),
         ),
     )

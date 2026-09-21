@@ -152,6 +152,49 @@ class Filters:
         return Scope(clause, tuple(args))
 
 
+# The ceiling any route's page is clamped to, whatever default it asks for.
+PER_PAGE_MAX = 1000
+
+
+@dataclasses.dataclass(frozen=True)
+class Page:
+    """Which slice of a paginated listing a request asks for.
+
+    Attributes:
+        page: The page number, 1-based.
+        per_page: The rows per page, never above PER_PAGE_MAX.
+    """
+
+    page: int
+    per_page: int
+
+    @classmethod
+    def from_params(cls, params: dict[str, list[str]], default: int) -> "Page":
+        """The page a query string asks for.
+
+        A `page` absent or below 1 is the first. A `per_page` absent or below 1
+        is `default`, and any size above PER_PAGE_MAX is clamped rather than
+        refused: bounding a number is not tolerating a malformed one.
+
+        Args:
+            params: The parsed query string.
+            default: The route's page size when the request names none.
+
+        Raises:
+            BadRequestError: If `page` or `per_page` is present but not a number.
+        """
+        page = int_param(params, "page")
+        per_page = int_param(params, "per_page")
+        if per_page < 1:
+            per_page = default
+        return cls(page=max(page, 1), per_page=min(per_page, PER_PAGE_MAX))
+
+    @property
+    def offset(self) -> int:
+        """The rows the earlier pages hold."""
+        return (self.page - 1) * self.per_page
+
+
 def _date_param(params: dict[str, list[str]], key: str) -> str:
     """A `YYYY-MM-DD` parameter as sent, `""` when it is absent.
 
