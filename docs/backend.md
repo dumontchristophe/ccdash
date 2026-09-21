@@ -17,6 +17,7 @@ ccdash/
   ingest.py       the write path
   pages/          the endpoints, one file per domain
     overview.py  costs.py  sessions.py  details.py  health.py  analysis.py
+    events.py
   core/           the shared read path
     aggregates.py  request.py  tz.py  store.py
   web/            the served frontend: index.html, assets/
@@ -39,11 +40,12 @@ analysis`.
 |---|---|
 | `store.py` | The private connection `_db` and its `_db_lock`, `TABLES`, `INDEXES`, `db_init` / `db_close`, the four query helpers `query` / `query_row` / `query_dicts` / `query_value`, the `write` context manager, and the three decoders both paths need: `as_int`, `as_float`, `tool_input` |
 | `ingest.py` | The write path: `anyvalue`, `kvlist`, `nano_to_s`, `make_label`, `ingest_metrics`, `ingest_logs`, `log_ingest`, `INGESTERS`, `DROP_ATTRS`, plus the transport limits and `inflate` / `read_chunked` |
-| `request.py` | What a request is read through: `Scope`, `Filters` with its `from_params` constructor, `one_param` / `int_param`, and the two refusals `NotFoundError` / `BadRequestError` with the bodies `NOT_FOUND` / `BAD_REQUEST` |
+| `request.py` | What a request is read through: `Scope`, `Filters` with its `from_params` constructor, `Page` with its own and the `PER_PAGE_MAX` it clamps to, `one_param` / `int_param`, and the two refusals `NotFoundError` / `BadRequestError` with the bodies `NOT_FOUND` / `BAD_REQUEST` |
 | `tz.py` | The display zone, `CCDASH_TZ` read once at startup: `from_env` (which `main` rebinds onto `store.tz`), `to_zone` / `date_to_epoch` for day-bucketing, `zone_name` for `/api/filters`. Sits just above `store` and is its sole reader; `None` means UTC. See [`reference.md`](reference.md#3-display-timezone-ccdash_tz) |
-| `aggregates.py` | The vocabulary the read path shares: `TOKEN_TYPES`, `WEIGHTS`, `KINDS`, `MAIN_THREAD_ORIGINS`, the `SPENT_SESSIONS` / `IDLE_SESSIONS` and `SESSION_TOTALS` fragments, the `HOOK_*` expressions, `short_model`, `attrs_of`, `tokens_by_type`, `weighted_tokens`, `capped`, and the query renderers `scoped` / `windowed` with the `SCOPE_MARK` they fill |
+| `aggregates.py` | The vocabulary the read path shares: `TOKEN_TYPES`, `WEIGHTS`, `KINDS`, `MAIN_THREAD_ORIGINS`, the `SPENT_SESSIONS` / `IDLE_SESSIONS` and `SESSION_TOTALS` fragments, the `HOOK_*` expressions, `short_model`, `attrs_of`, `tokens_by_type`, `weighted_tokens`, `capped`, the query renderers `scoped` / `windowed` with the `SCOPE_MARK` they fill, and `paginated`, the one builder of the pagination envelope |
 | `analysis.py` | The analyses a scope is read through — `tool_stats`, `file_stats`, `bash_calls`, `errors_calls`, `provider_errors`, `decisions_stats`, `delegation_types`, `subagents_stats`, `prompt_stats`, `inventory_stats`, `source_breakdown` — plus `api_analysis`, `api_calls` and `ANALYSIS_CAPS` |
 | `sessions.py` | A session listed and opened: `session_titles`, `session_models`, `session_figures`, `api_sessions`, `api_session`, `api_context`, and `SESSION_MAX_ROWS` |
+| `events.py` | Event rows across the window: `api_events`, and `EVENT_COLUMNS` with its `RESPONSE_CLIP`, the row projection the session timeline selects too |
 | `costs.py` | What was spent: `api_projects` and `api_costs` |
 | `overview.py` | The landing page: `api_filters`, `headline_figures`, `api_overview` |
 | `details.py` | One record opened: `api_event`, `api_subagent`, `api_prompt` |
@@ -177,6 +179,7 @@ and carrying the decoded `days`, `host`, `project`, `start_date` and
 | `/api/costs` | daily series, per model, per project, per request origin |
 | `/api/context` | one row per session: auto and manual compactions, `pre_compaction_peak`, `max_context`, cost, tools, prompts and `tools_per_prompt`; plus the window totals `auto_compactions`, `manual_compactions` and `pre_compaction_peak` |
 | `/api/calls` | the calls behind one label or one file |
+| `/api/events` | raw event rows across the window, paginated — see *Paginated routes* |
 | `/api/event?id=` · `/api/subagent?id=` · `/api/prompt?id=` · `/api/hook?name=` | detail for one record |
 | `/api/filters` | the values offered by the host and project dropdowns |
 | `/api/health` | diagnostics: ingestion journal, event and metric names, counters |
@@ -254,6 +257,41 @@ id the caller simply misspelled.
 The catch-all turns everything else into a `500` carrying `SERVER_ERROR` alone,
 with the exception written to stderr. The body is what an unauthenticated reader
 gets: module names, file paths and SQL stay server-side.
+
+### Paginated routes
+
+`/api/events` answers an envelope rather than a bare array:
+
+```json
+{"data": [...], "total": 2500, "per_page": 500, "current_page": 1, "last_page": 5}
+```
+
+`total` is a `COUNT(*)` over the same `WHERE` as the page, and `last_page` is
+`max(1, ceil(total / per_page))`, so an empty result still has a first page. A
+`page` past `last_page` answers `data: []` with the other four keys populated,
+not an error. `aggregates.paginated` is the only place that builds this shape.
+
+| Parameter | Format | Meaning |
+|---|---|---|
+| `page` | int | 1-based; absent or below 1 is the first page |
+| `per_page` | int | Absent or below 1 is the route's default (`EVENTS_PER_PAGE`, 500); above `PER_PAGE_MAX` (1000) it is clamped, not refused |
+
+A `page` or `per_page` that is not a number is a `400`, like a non-numeric
+`days`: a tolerant parse would answer an arbitrary page. Pagination is by
+offset, ordered `ts DESC, id DESC` so the order is total: on a static database
+consecutive pages neither lose nor repeat a row, but a row ingested between two
+requests shifts the later pages by one. A cursor would not, and was not worth
+its cost for a local reader.
+
+`/api/events` reads the five window parameters plus `name` (repeatable, any of
+the values), `label`, `skill` (the `skill_name` column) and `session`; they
+combine as AND. With none of them it answers the window's most recent events —
+the page bounds the cost. A row is the timeline's row (`EVENT_COLUMNS`,
+`response` clipped to `RESPONSE_CLIP` with `response_length` beside it,
+`success` a bool) plus `session_id` and `project`. No name is excluded:
+`name=hook_execution_start` answers those rows. The ceilings below do not apply,
+and there is no `truncated` key — the envelope is how the route says what it
+left out.
 
 ### No response cache
 

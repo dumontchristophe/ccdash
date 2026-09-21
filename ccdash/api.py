@@ -6,7 +6,16 @@ from collections.abc import Callable
 from typing import Any
 
 from .core import request
-from .pages import analysis, costs, details, health, overview, sessions, version
+from .pages import (
+    analysis,
+    costs,
+    details,
+    events,
+    health,
+    overview,
+    sessions,
+    version,
+)
 
 # The canonical list of GET endpoints. Uniform `(params, filters)` signature —
 # the filters are already decoded, each lambda reading only what its `api_*`
@@ -34,6 +43,7 @@ API_ROUTES: dict[str, Callable[[dict[str, list[str]], request.Filters], Any]] = 
         request.one_param(params, "prompt") or None,
         request.one_param(params, "file") or None,
     ),
+    "/api/events": lambda params, filters: events.api_events(params, filters),
     "/api/filters": lambda params, filters: overview.api_filters(),
     "/api/hook": lambda params, filters: health.api_hook(
         request.one_param(params, "name")

@@ -17,13 +17,15 @@ from base import BaseDBTest
 from test_api import NO_FILTER
 
 from ccdash.core.aggregates import (
+    SCOPE_MARK,
     WEIGHTS,
+    paginated,
     scoped,
     short_model,
     success_bool,
     windowed,
 )
-from ccdash.core.request import BadRequestError, Filters, Scope
+from ccdash.core.request import PER_PAGE_MAX, BadRequestError, Filters, Page, Scope
 from ccdash.pages.sessions import session_figures
 from ccdash.pages.version import is_newer
 
@@ -459,6 +461,46 @@ class TestFiltersFromParams(unittest.TestCase):
                     Filters.from_params(params)
 
 
+class TestPageFromParams(unittest.TestCase):
+    """`page` and `per_page` read into a Page: the caller's default, the 1-based
+    floor, the clamp, and the refusal of a value that is not a number."""
+
+    def test_absent_parameters_are_the_first_page_at_the_default_size(self):
+        self.assertEqual(Page.from_params({}, 50), Page(page=1, per_page=50))
+
+    def test_every_parameter_reaches_its_field(self):
+        got = Page.from_params({"page": ["3"], "per_page": ["20"]}, 50)
+        self.assertEqual(got, Page(page=3, per_page=20))
+
+    def test_a_page_below_one_reads_as_the_first(self):
+        for raw in ("0", "-2"):
+            with self.subTest(page=raw):
+                self.assertEqual(Page.from_params({"page": [raw]}, 50).page, 1)
+
+    def test_a_per_page_below_one_reads_as_the_default(self):
+        for raw in ("0", "-5"):
+            with self.subTest(per_page=raw):
+                got = Page.from_params({"per_page": [raw]}, 50)
+                self.assertEqual(got.per_page, 50)
+
+    def test_a_per_page_above_the_maximum_is_clamped(self):
+        got = Page.from_params({"per_page": [str(PER_PAGE_MAX + 1)]}, 50)
+        self.assertEqual(got.per_page, PER_PAGE_MAX)
+
+    def test_a_default_above_the_maximum_is_clamped_too(self):
+        self.assertEqual(Page.from_params({}, PER_PAGE_MAX * 2).per_page, PER_PAGE_MAX)
+
+    def test_the_offset_skips_the_earlier_pages(self):
+        self.assertEqual(Page(page=1, per_page=20).offset, 0)
+        self.assertEqual(Page(page=3, per_page=20).offset, 40)
+
+    def test_refusals(self):
+        for key in ("page", "per_page"):
+            with self.subTest(key=key):
+                with self.assertRaises(BadRequestError):
+                    Page.from_params({key: ["two"]}, 50)
+
+
 class TestScope(unittest.TestCase):
     def test_narrow_appends_clause_and_args(self):
         scope = Scope(" AND session_id=?", ("s1",)).narrow(" AND label=?", "Bash")
@@ -544,10 +586,101 @@ class TestScoped(unittest.TestCase):
         _, args = scoped("COUNT(*)", "(SELECT id FROM t WHERE 1{scope}){scope}", scope)
         self.assertEqual(args, ("h1", "h1"))
 
+    def test_an_offset_follows_the_limit(self):
+        sql, _ = scoped("a", "t WHERE 1{scope}", Scope.UNBOUNDED, limit=5, offset=10)
+        self.assertEqual(sql, "SELECT a FROM t WHERE 1 LIMIT 5 OFFSET 10")
+
+    def test_an_offset_without_a_limit_is_refused(self):
+        # SQLite has no OFFSET without a LIMIT: the query would not even parse.
+        with self.assertRaises(ValueError):
+            scoped("a", "t WHERE 1{scope}", Scope.UNBOUNDED, offset=10)
+
+    def test_the_tail_survives_a_window_carrying_a_literal_percent_s(self):
+        # A rolling window renders `strftime('%s', ...)`: formatting the tail
+        # after the window is in would choke on it.
+        scope = Filters(days=7, host=None, project=None).scope()
+        sql, _ = scoped("a", "t WHERE 1{scope}", scope, limit=5, offset=10)
+        self.assertIn("strftime('%s'", sql)
+        self.assertTrue(sql.endswith(" LIMIT 5 OFFSET 10"))
+
     def test_a_population_without_a_marker_is_refused(self):
         # No marker means no window even under a real scope: the slip must fail.
         with self.assertRaises(ValueError):
             scoped("a", "t WHERE name='x'", Scope(" AND host=?", ("h1",)))
+
+
+class TestPaginated(BaseDBTest):
+    """The pagination envelope over five `x` rows and one `y` row, all at the
+    same second so the id alone keeps the order deterministic."""
+
+    POPULATION = "events WHERE name=?" + SCOPE_MARK
+
+    def setUp(self):
+        super().setUp()
+        with store.write() as db:
+            db.executemany(
+                "INSERT INTO events (ts, name) VALUES (1000, ?)",
+                [("x",)] * 5 + [("y",)],
+            )
+
+    def page_of(self, page, per_page):
+        return paginated(
+            "id",
+            self.POPULATION,
+            Scope.UNBOUNDED,
+            Page(page=page, per_page=per_page),
+            order="ts DESC, id DESC",
+            args=("x",),
+        )
+
+    def test_the_envelope_counts_the_whole_population(self):
+        got = self.page_of(1, 2)
+        self.assertEqual(
+            {k: v for k, v in got.items() if k != "data"},
+            {"total": 5, "per_page": 2, "current_page": 1, "last_page": 3},
+        )
+        self.assertEqual(len(got["data"]), 2)
+
+    def test_consecutive_pages_neither_lose_nor_repeat_a_row(self):
+        ids = [row["id"] for page in (1, 2, 3) for row in self.page_of(page, 2)["data"]]
+        self.assertEqual(ids, [5, 4, 3, 2, 1])
+
+    def test_a_page_past_the_end_is_empty_with_the_envelope_populated(self):
+        got = self.page_of(4, 2)
+        self.assertEqual(got["data"], [])
+        self.assertEqual(
+            (got["total"], got["current_page"], got["last_page"]), (5, 4, 3)
+        )
+
+    def test_a_page_beyond_any_offset_sqlite_holds_is_still_empty(self):
+        # The offset overflows SQLite's 64-bit integer: past the last page is
+        # past the last page, however far.
+        got = self.page_of(10**20, 2)
+        self.assertEqual(got["data"], [])
+        self.assertEqual(got["current_page"], 10**20)
+
+    def test_an_empty_population_still_has_a_first_page(self):
+        got = paginated(
+            "id",
+            self.POPULATION,
+            Scope.UNBOUNDED,
+            Page(page=1, per_page=2),
+            args=("absent",),
+        )
+        self.assertEqual(
+            got,
+            {"data": [], "total": 0, "per_page": 2, "current_page": 1, "last_page": 1},
+        )
+
+    def test_the_scope_narrows_both_the_count_and_the_page(self):
+        got = paginated(
+            "id",
+            "events WHERE 1" + SCOPE_MARK,
+            Scope(" AND name=?", ("y",)),
+            Page(page=1, per_page=10),
+        )
+        self.assertEqual(got["total"], 1)
+        self.assertEqual([row["id"] for row in got["data"]], [6])
 
 
 class TestQueryValue(BaseDBTest):
