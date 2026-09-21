@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.2.0 — 2026-09-21
+
+### Added
+
+- `GET /api/events`: the window's raw events, newest first, paginated as `data`, `total`, `per_page`, `current_page` and `last_page`. Narrowed by `name` (repeatable), `label`, `skill` and `session`; `page` and `per_page` pick the slice, 500 rows by default and at most 1000. Each row carries the session timeline's columns plus `session_id` and `project`, the response clipped the same way.
 
 ### Changed
 
